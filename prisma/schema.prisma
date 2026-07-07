@@ -1,0 +1,200 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── 1. USERS ────────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(SALES_REP)
+  status    Status   @default(ACTIVE)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  contacts   Contact[]
+  deals      Deal[]
+  tasks      Task[]
+  activities Activity[]
+
+  @@map("users")
+}
+
+// ─── 2. COMPANIES ────────────────────────────────────────────────────────────
+
+model Company {
+  id          String   @id @default(cuid())
+  companyName String   @map("company_name")
+  industry    String?
+  website     String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  contacts Contact[]
+
+  @@map("companies")
+}
+
+// ─── 3. CONTACTS ─────────────────────────────────────────────────────────────
+
+model Contact {
+  id          String        @id @default(cuid())
+  firstName   String        @map("first_name")
+  lastName    String        @map("last_name")
+  email       String        @unique
+  phone       String?
+  companyId   String?       @map("company_id")
+  location    String?
+  leadStatus  LeadStatus    @default(WARM) @map("lead_status")
+  isFavourite Boolean       @default(false) @map("is_favourite")
+  ownerId     String        @map("owner_id")
+  status      ContactStatus @default(ACTIVE)   // lifecycle: kept alongside leadStatus
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  owner   User     @relation(fields: [ownerId], references: [id])
+  company Company? @relation(fields: [companyId], references: [id])
+  deals   Deal[]
+
+  // Indexes — per story's performance section
+  @@index([email])
+  @@index([companyId])
+  @@index([ownerId])
+  @@index([createdAt])
+  @@index([firstName])
+  @@index([lastName])
+  @@map("contacts")
+}
+
+// ─── 4. DEALS ────────────────────────────────────────────────────────────────
+
+model Deal {
+  id                String      @id @default(cuid())
+  title             String
+  contactId         String      @map("contact_id")
+  ownerId           String      @map("owner_id")
+  amount            Decimal     @db.Decimal(12, 2)
+  stage             DealStage   @default(QUALIFICATION)
+  status            DealStatus  @default(OPEN)
+  expectedCloseDate DateTime?   @map("expected_close_date")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  contact Contact @relation(fields: [contactId], references: [id])
+  owner   User    @relation(fields: [ownerId], references: [id])
+
+  @@map("deals")
+}
+
+// ─── 5. ACTIVITIES ───────────────────────────────────────────────────────────
+// entityId is polymorphic — it can reference a Deal, Contact, Task, or User.
+// Because it points to multiple tables, we intentionally do NOT add a Prisma
+// relation or a database FK here. Lookups are done in application code.
+
+model Activity {
+  id           String       @id @default(cuid())
+  userId       String       @map("user_id")
+  activityType ActivityType @map("activity_type")
+  entityType   EntityType   @map("entity_type")
+  entityId     String       @map("entity_id")  // no FK — polymorphic reference
+  message      String
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("activities")
+}
+
+// ─── 6. TASKS ────────────────────────────────────────────────────────────────
+
+model Task {
+  id         String     @id @default(cuid())
+  title      String
+  assignedTo String     @map("assigned_to")
+  status     TaskStatus @default(PENDING)
+  dueDate    DateTime?  @map("due_date")
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  // Relations
+  assignee User @relation(fields: [assignedTo], references: [id])
+
+  @@map("tasks")
+}
+
+// ─── ENUMS ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  SALES_REP
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+}
+
+enum ContactStatus {
+  ACTIVE
+  INACTIVE
+  LEAD
+}
+
+// Sales temperature — separate axis from ContactStatus (lifecycle).
+// Story's "Lead Status" section: Hot / Warm / Cold, enforced at DB level.
+enum LeadStatus {
+  HOT
+  WARM
+  COLD
+}
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+}
+
+enum DealStage {
+  QUALIFICATION
+  PROPOSAL
+  NEGOTIATION
+  CLOSED_WON
+}
+
+enum ActivityType {
+  DEAL_CREATED
+  DEAL_UPDATED
+  MEETING_SCHEDULED
+  CONTACT_UPDATED
+  EMAIL_SENT
+  TASK_COMPLETED
+  NOTE_ADDED
+}
+
+enum EntityType {
+  DEAL
+  CONTACT
+  TASK
+  USER
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
