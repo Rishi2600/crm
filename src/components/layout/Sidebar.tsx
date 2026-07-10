@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 
 const NAV = [
   { label: "Dashboard",  href: "/dashboard",  icon: (
@@ -37,18 +36,6 @@ const NAV = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    setDark(document.documentElement.classList.contains("dark"));
-  }, []);
-
-  function toggleTheme() {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("crm-theme", next ? "dark" : "light");
-  }
 
   function handleLogout() {
     localStorage.removeItem("crm-token");
@@ -90,44 +77,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom */}
-      <div className="p-3 space-y-0.5" style={{ borderTop: "1px solid var(--border)" }}>
-        {/* Dark mode toggle */}
-        <button
-          onClick={toggleTheme}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors"
-          style={{ color: "var(--text-muted)" }}
-        >
-          <span className="flex items-center gap-3">
-            {dark ? (
-              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                <circle cx="12" cy="12" r="5"/>
-                <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-              </svg>
-            ) : (
-              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-              </svg>
-            )}
-            {dark ? "Light mode" : "Dark mode"}
-          </span>
-          {/* Toggle pill */}
-          <div
-            className="w-8 h-4 rounded-full relative transition-colors flex-shrink-0"
-            style={{ background: dark ? "var(--text)" : "var(--border)" }}
-          >
-            <div
-              className="absolute top-0.5 w-3 h-3 rounded-full transition-all"
-              style={{
-                background: dark ? "var(--bg)" : "var(--text-muted)",
-                left: dark ? "calc(100% - 14px)" : "2px",
-              }}
-            />
-          </div>
-        </button>
-
+      <div className="p-3" style={{ borderTop: "1px solid var(--border)" }}>
         {/* Sign out */}
         <button
           onClick={handleLogout}

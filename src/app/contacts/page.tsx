@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
+import ThemeToggle from "@/components/layout/ThemeToggle";
 import { ContactsApiResponse, ContactResponse } from "@/types/contacts";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -83,6 +84,7 @@ export default function ContactsPage() {
           <span className="text-sm font-medium" style={{ color: "var(--text)" }}>
             Contacts {total > 0 && <span style={{ color: "var(--text-muted)" }}>· {total}</span>}
           </span>
+          <ThemeToggle />
         </div>
 
         <div className="p-8">

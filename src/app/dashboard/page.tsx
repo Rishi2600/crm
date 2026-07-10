@@ -8,6 +8,7 @@ import RevenueChart from "@/components/charts/RevenueChart";
 import PipelineChart from "@/components/charts/PipelineChart";
 import ActivityFeed from "@/components/cards/ActivityFeed";
 import Sidebar from "@/components/layout/Sidebar";
+import ThemeToggle from "@/components/layout/ThemeToggle";
 
 function formatCurrency(n: number): string {
   if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
@@ -82,9 +83,12 @@ export default function DashboardPage() {
             </span>
             <span className="text-sm ml-2" style={{ color: "var(--text-muted)" }}>{dateStr}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
-            <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--live)" }} />
-            Live
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
+              <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--live)" }} />
+              Live
+            </div>
+            <ThemeToggle />
           </div>
         </div>
 

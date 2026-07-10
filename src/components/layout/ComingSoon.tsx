@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
+import ThemeToggle from "@/components/layout/ThemeToggle";
 
 interface ComingSoonProps {
   module: string;
@@ -16,8 +17,9 @@ export default function ComingSoon({ module, description }: ComingSoonProps) {
       <Sidebar />
       <main className="flex-1 ml-52 min-h-screen">
         {/* Top bar */}
-        <div className="h-14 flex items-center px-8" style={{ borderBottom: "1px solid var(--border)" }}>
+        <div className="h-14 flex items-center justify-between px-8" style={{ borderBottom: "1px solid var(--border)" }}>
           <span className="text-sm font-medium" style={{ color: "var(--text)" }}>{module}</span>
+          <ThemeToggle />
         </div>
 
         {/* Content */}
@@ -35,7 +37,7 @@ export default function ComingSoon({ module, description }: ComingSoonProps) {
             </div>
 
             <h2 className="text-sm font-medium mb-2" style={{ color: "var(--text)" }}>
-              {module} coming soon
+              {module} — coming soon
             </h2>
             <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
               {description}
