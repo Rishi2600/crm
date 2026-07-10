@@ -88,6 +88,7 @@ model Deal {
   amount            Decimal     @db.Decimal(12, 2)
   stage             DealStage   @default(QUALIFICATION)
   status            DealStatus  @default(OPEN)
+  probability       Int         @default(0)   // 0–100, validated at the API layer (see deals/pipeline route)
   expectedCloseDate DateTime?   @map("expected_close_date")
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
@@ -96,6 +97,13 @@ model Deal {
   contact Contact @relation(fields: [contactId], references: [id])
   owner   User    @relation(fields: [ownerId], references: [id])
 
+  // Indexes — per Deals Pipeline story's performance section
+  @@index([ownerId])
+  @@index([contactId])
+  @@index([stage])
+  @@index([status])
+  @@index([expectedCloseDate])
+  @@index([createdAt])
   @@map("deals")
 }
 
