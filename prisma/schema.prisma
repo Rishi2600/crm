@@ -18,14 +18,24 @@ model User {
   password  String
   role      UserRole @default(SALES_REP)
   status    Status   @default(ACTIVE)
+  managerId String?  @map("manager_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // Reporting hierarchy — self-relation. A user has at most one manager,
+  // and can have many direct reports. Depth is intentionally ONE LEVEL only
+  // (direct reports, not the full recursive subtree) — see Tasks module's
+  // /api/users/assignable route for where this gets enforced.
+  manager       User?  @relation("ManagerHierarchy", fields: [managerId], references: [id])
+  directReports User[] @relation("ManagerHierarchy")
+
   // Relations
-  contacts   Contact[]
-  deals      Deal[]
-  tasks      Task[]
-  activities Activity[]
+  contacts       Contact[]
+  deals          Deal[]
+  activities     Activity[]
+  assignedTasks  Task[]         @relation("TaskAssignee")
+  createdTasks   Task[]         @relation("TaskCreator")
+  taskActivities TaskActivity[]
 
   @@map("users")
 }
@@ -64,9 +74,10 @@ model Contact {
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
   // Relations
-  owner   User     @relation(fields: [ownerId], references: [id])
-  company Company? @relation(fields: [companyId], references: [id])
-  deals   Deal[]
+  owner         User           @relation(fields: [ownerId], references: [id])
+  company       Company?       @relation(fields: [companyId], references: [id])
+  deals         Deal[]
+  taskAttendees TaskAttendee[] // meeting attendance, via Tasks module
 
   // Indexes — per story's performance section
   @@index([email])
@@ -96,6 +107,7 @@ model Deal {
   // Relations
   contact Contact @relation(fields: [contactId], references: [id])
   owner   User    @relation(fields: [ownerId], references: [id])
+  tasks   Task[]  // tasks optionally linked via Task.relatedDealId
 
   // Indexes — per Deals Pipeline story's performance section
   @@index([ownerId])
@@ -130,17 +142,87 @@ model Activity {
 // ─── 6. TASKS ────────────────────────────────────────────────────────────────
 
 model Task {
-  id         String     @id @default(cuid())
-  title      String
-  assignedTo String     @map("assigned_to")
-  status     TaskStatus @default(PENDING)
-  dueDate    DateTime?  @map("due_date")
-  createdAt  DateTime   @default(now()) @map("created_at")
+  id            String       @id @default(cuid())
+  title         String
+  description   String?
+  priority      TaskPriority @default(MEDIUM)
+  status        TaskStatus   @default(TODO)
+  // "type" distinguishes a plain task from one that carries meeting details
+  // (TaskActivity rows + TaskAttendee rows). Not in the story's column list
+  // explicitly — added so the frontend can filter "show me my meetings"
+  // without inferring it from whether related rows happen to exist.
+  type          TaskType     @default(STANDARD)
+  dueDate       DateTime?    @map("due_date")
+  relatedDealId String?      @map("related_deal_id")
+  assignedTo    String       @map("assigned_to")
+  createdBy     String       @map("created_by")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  // Relations — two separate User relations (who it's assigned to vs. who
+  // created it) require explicit relation names since Prisma can't infer
+  // which foreign key maps to which relation when there's more than one
+  // path between the same two models.
+  assignee    User           @relation("TaskAssignee", fields: [assignedTo], references: [id])
+  creator     User           @relation("TaskCreator", fields: [createdBy], references: [id])
+  relatedDeal Deal?          @relation(fields: [relatedDealId], references: [id])
+  activities  TaskActivity[]
+  attendees   TaskAttendee[]
+
+  // Indexes — per story's performance section
+  @@index([assignedTo])
+  @@index([createdBy])
+  @@index([status])
+  @@index([dueDate])
+  @@index([relatedDealId])
+  @@map("tasks")
+}
+
+// ─── 7. TASK ACTIVITIES ──────────────────────────────────────────────────────
+// Renamed from the story's "Activities" table to avoid colliding with the
+// PRE-EXISTING `Activity` model (dashboard's audit-log / Recent Activity
+// feed — a completely different concept that happens to share a name in
+// the story documents). This table holds meeting/call/follow-up DETAILS
+// attached to a specific task; the original `Activity` model is untouched.
+
+model TaskActivity {
+  id           String           @id @default(cuid())
+  taskId       String           @map("task_id")
+  activityType TaskActivityType @map("activity_type")
+  meetingDate  DateTime?        @map("meeting_date")
+  meetingTime  String?          @map("meeting_time") // stored as "HH:mm" — kept as a simple string since the story treats date/time as separate fields
+  location     String?
+  notes        String?
+  createdBy    String           @map("created_by")
+  createdAt    DateTime         @default(now()) @map("created_at")
 
   // Relations
-  assignee User @relation(fields: [assignedTo], references: [id])
+  task    Task @relation(fields: [taskId], references: [id])
+  creator User @relation(fields: [createdBy], references: [id])
 
-  @@map("tasks")
+  @@index([taskId])
+  @@map("task_activities")
+}
+
+// ─── 8. TASK ATTENDEES ────────────────────────────────────────────────────────
+// Join table — a task (if it's a meeting) can have many attendees, and a
+// contact can be an attendee on many different tasks/meetings over time.
+
+model TaskAttendee {
+  id        String   @id @default(cuid())
+  taskId    String   @map("task_id")
+  contactId String   @map("contact_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  task    Task    @relation(fields: [taskId], references: [id])
+  contact Contact @relation(fields: [contactId], references: [id])
+
+  // Prevents adding the same contact as an attendee on the same task twice
+  @@unique([taskId, contactId])
+  @@index([taskId])
+  @@index([contactId])
+  @@map("task_attendees")
 }
 
 // ─── ENUMS ───────────────────────────────────────────────────────────────────
@@ -200,9 +282,31 @@ enum EntityType {
   USER
 }
 
+// TaskStatus renamed from the original PENDING/IN_PROGRESS/COMPLETED/CANCELLED
+// to match this story's exact spec (TODO/IN_PROGRESS/COMPLETED). CANCELLED
+// was intentionally dropped rather than assumed — flagged as reversible if
+// a "cancelled" state turns out to be needed later.
 enum TaskStatus {
-  PENDING
+  TODO
   IN_PROGRESS
   COMPLETED
-  CANCELLED
+}
+
+enum TaskPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+// Distinguishes a plain task from a meeting-carrying one — see the note on
+// Task.type above for why this is explicit rather than inferred.
+enum TaskType {
+  STANDARD
+  MEETING
+}
+
+enum TaskActivityType {
+  MEETING
+  CALL
+  FOLLOW_UP
 }
