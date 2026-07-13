@@ -101,6 +101,11 @@ model Deal {
   status            DealStatus  @default(OPEN)
   probability       Int         @default(0)   // 0–100, validated at the API layer (see deals/pipeline route)
   expectedCloseDate DateTime?   @map("expected_close_date")
+  // Set automatically when a deal's stage moves to CLOSED_WON (see
+  // deals/[id]/stage route) — added for Analytics' Sales Cycle KPI and
+  // Revenue Trend graph, neither of which can be computed without knowing
+  // WHEN a deal actually closed, not just when it was created.
+  closedAt          DateTime?   @map("closed_at")
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
 
@@ -109,13 +114,16 @@ model Deal {
   owner   User    @relation(fields: [ownerId], references: [id])
   tasks   Task[]  // tasks optionally linked via Task.relatedDealId
 
-  // Indexes — per Deals Pipeline story's performance section
+  // Indexes — per Deals Pipeline story's performance section, plus
+  // closedAt/amount added for Analytics & Reports
   @@index([ownerId])
   @@index([contactId])
   @@index([stage])
   @@index([status])
   @@index([expectedCloseDate])
   @@index([createdAt])
+  @@index([closedAt])
+  @@index([amount])
   @@map("deals")
 }
 

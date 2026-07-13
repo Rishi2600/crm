@@ -121,6 +121,18 @@ async function main() {
     for (let j = 0; j < dealsForThisContact; j++) {
       const status = statusCycle[(i + j) % statusCycle.length];
       const stage = status === DealStatus.WON ? DealStage.CLOSED_WON : stages[(i + j) % stages.length];
+      const createdAt = monthsAgo((i + j) % 6);
+
+      // closedAt only ever gets set for WON deals — matches the live app's
+      // behavior, where the stage-update endpoint sets it automatically
+      // when a deal reaches Closed Won. LOST deals deliberately have no
+      // closedAt (no endpoint in the app marks a deal Lost yet — a standing
+      // gap, not an oversight here).
+      const closedAt =
+        status === DealStatus.WON
+          ? new Date(createdAt.getTime() + (7 + ((i + j) % 30)) * 24 * 60 * 60 * 1000) // 7–37 days later
+          : null;
+
       dealsData.push({
         title: `${dealTitles[(i + j) % dealTitles.length]}`,
         contactId: contact.id,
@@ -128,7 +140,8 @@ async function main() {
         amount: 8000 + ((i * 7 + j * 13) % 40) * 2500, // varied amounts, $8k–$100k+
         stage,
         status,
-        createdAt: monthsAgo((i + j) % 6),
+        createdAt,
+        closedAt,
         expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       });
     }

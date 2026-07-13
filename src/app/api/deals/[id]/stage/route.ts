@@ -76,10 +76,22 @@ export async function PATCH(
       );
     }
 
+    // 🚩 Analytics gap fix: moving a deal to "Closed Won" here is currently
+    // the ONLY code path that ever marks a deal as actually won — previously
+    // this endpoint only touched `stage`, leaving `status` and `closedAt`
+    // stuck at their defaults forever outside of seed data. Analytics'
+    // Sales Cycle KPI and Revenue Trend graph both need a real closedAt, so
+    // this is now set here automatically. (Marking a deal LOST still has no
+    // endpoint anywhere in the app — a separate, still-open gap.)
+    const isClosingWon = stageEnum === "CLOSED_WON";
+
     // ── Update — updatedAt bumps automatically via @updatedAt ──────────────
     const updated = await prisma.deal.update({
       where: { id: dealId },
-      data: { stage: stageEnum as any },
+      data: {
+        stage: stageEnum as any,
+        ...(isClosingWon ? { status: "WON" as any, closedAt: new Date() } : {}),
+      },
       select: {
         id: true,
         title: true,
