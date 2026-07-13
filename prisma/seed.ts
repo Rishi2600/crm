@@ -34,6 +34,22 @@ async function main() {
     create: { name: "Hamza Iqbal", email: "hamza@crm.com", password: hashedPassword, role: UserRole.SALES_REP },
   });
 
+  // Manager who owns the reporting hierarchy for rep1/rep2/rep3.
+  // Tasks module's /api/users/assignable and hierarchy checks depend on
+  // managerId being populated — without this, every "assign to my team"
+  // check would come back empty.
+  const manager = await prisma.user.upsert({
+    where: { email: "usman@crm.com" },
+    update: {},
+    create: { name: "Usman Tariq", email: "usman@crm.com", password: hashedPassword, role: UserRole.MANAGER },
+  });
+
+  await Promise.all([
+    prisma.user.update({ where: { id: rep1.id }, data: { managerId: manager.id } }),
+    prisma.user.update({ where: { id: rep2.id }, data: { managerId: manager.id } }),
+    prisma.user.update({ where: { id: rep3.id }, data: { managerId: manager.id } }),
+  ]);
+
   const owners = [admin, rep1, rep2, rep3];
   console.log("✅ Users created");
 
@@ -148,13 +164,45 @@ async function main() {
   console.log(`✅ ${activityCreates.length} Activities created`);
 
   // ── Tasks ──────────────────────────────────────────────────────────────────
+  // createdBy is now a required field (Tasks & Activities module) — every
+  // task needs to know who created it, not just who it's assigned to.
   await Promise.all([
-    prisma.task.create({ data: { title: "Follow up with TechCorp on renewal", assignedTo: rep1.id, dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) } }),
-    prisma.task.create({ data: { title: "Prepare proposal for FinTech IO Expansion", assignedTo: rep2.id, dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) } }),
-    prisma.task.create({ data: { title: "Schedule demo for HealthPlus Full Suite", assignedTo: rep3.id, dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } }),
-    prisma.task.create({ data: { title: "Send contract to Skyline Media", assignedTo: rep1.id, dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) } }),
-    prisma.task.create({ data: { title: "Check in with Northwind Logistics", assignedTo: rep2.id, dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000) } }),
+    prisma.task.create({ data: { title: "Follow up with TechCorp on renewal", assignedTo: rep1.id, createdBy: rep1.id, dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) } }),
+    prisma.task.create({ data: { title: "Prepare proposal for FinTech IO Expansion", assignedTo: rep2.id, createdBy: manager.id, dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) } }),
+    prisma.task.create({ data: { title: "Schedule demo for HealthPlus Full Suite", assignedTo: rep3.id, createdBy: manager.id, dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } }),
+    prisma.task.create({ data: { title: "Send contract to Skyline Media", assignedTo: rep1.id, createdBy: rep1.id, dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) } }),
+    prisma.task.create({ data: { title: "Check in with Northwind Logistics", assignedTo: rep2.id, createdBy: rep2.id, dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000) } }),
   ]);
+
+  // One sample MEETING-type task, with its TaskActivity detail row and a
+  // couple of attendees pulled from real seeded Contacts — exercises the
+  // full meeting flow (type, TaskActivity, TaskAttendee) end to end.
+  const meetingTask = await prisma.task.create({
+    data: {
+      title: "Kickoff call with FinTech IO",
+      assignedTo: rep2.id,
+      createdBy: manager.id,
+      type: "MEETING",
+      dueDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
+      activities: {
+        create: {
+          activityType: "MEETING",
+          meetingDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
+          meetingTime: "14:30",
+          location: "Zoom",
+          notes: "Discuss expansion scope and timeline",
+          createdBy: manager.id,
+        },
+      },
+    },
+  });
+
+  await prisma.taskAttendee.createMany({
+    data: [
+      { taskId: meetingTask.id, contactId: contacts[2].id }, // Michael Brown, FinTech IO
+    ],
+  });
+
   console.log("✅ Tasks created");
 
   console.log("\n🎉 Seeding complete!");
@@ -162,10 +210,11 @@ async function main() {
   console.log(`   Contacts:   ${contacts.length}`);
   console.log(`   Deals:      ${deals.length}`);
   console.log("\n📧 Login credentials:");
-  console.log("   Admin:  admin@crm.com  / password123");
-  console.log("   Sales:  ali@crm.com    / password123");
-  console.log("   Sales:  fatima@crm.com / password123");
-  console.log("   Sales:  hamza@crm.com  / password123");
+  console.log("   Admin:    admin@crm.com  / password123");
+  console.log("   Manager:  usman@crm.com  / password123");
+  console.log("   Sales:    ali@crm.com    / password123");
+  console.log("   Sales:    fatima@crm.com / password123");
+  console.log("   Sales:    hamza@crm.com  / password123");
 }
 
 main()
