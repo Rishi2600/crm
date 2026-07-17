@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 
 const NAV = [
@@ -51,7 +52,7 @@ export default function Sidebar() {
     >
       {/* Brand */}
       <div className="px-5 h-14 flex items-center" style={{ borderBottom: "1px solid var(--border)" }}>
-        <span className="text-sm font-semibold tracking-tight" style={{ color: "var(--text)" }}>CRM</span>
+        <Link href="/" className="text-sm font-semibold tracking-tight" style={{ color: "var(--text)" }}>CRM</Link>
       </div>
 
       {/* Nav */}

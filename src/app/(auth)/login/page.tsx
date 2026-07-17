@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -68,7 +69,7 @@ export default function LoginPage() {
         />
 
         <div className="relative z-10">
-          <div className="text-xl font-semibold" style={{ letterSpacing: "-0.02em" }}>CRM</div>
+          <Link href="/" className="text-xl font-semibold" style={{ letterSpacing: "-0.02em" }}>CRM</Link>
         </div>
 
         <div className="relative z-10 max-w-md">
@@ -113,9 +114,9 @@ export default function LoginPage() {
             className="w-full max-w-sm"
           >
             {/* Mobile-only brand mark */}
-            <div className="lg:hidden text-xl font-semibold mb-8" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
+            <Link href="/" className="lg:hidden block text-xl font-semibold mb-8" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
               CRM
-            </div>
+            </Link>
 
             <h2 className="text-2xl font-semibold mb-1" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
               Welcome back
