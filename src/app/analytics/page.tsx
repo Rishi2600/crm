@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
+import Select from "@/components/ui/Select";
+import DatePicker from "@/components/ui/DatePicker";
 import { AnalyticsDashboardResponse } from "@/types/analytics";
 
 function formatCurrency(n: number): string {
@@ -99,13 +101,9 @@ export default function AnalyticsPage() {
         <div className="p-8 space-y-6">
           {/* Date range filter */}
           <div className="flex items-center gap-3">
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-              className="px-3 py-2 rounded-lg text-sm"
-              style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
+            <DatePicker value={from} onChange={setFrom} placeholder="From" className="w-40" />
             <span className="text-xs" style={{ color: "var(--text-muted)" }}>to</span>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-              className="px-3 py-2 rounded-lg text-sm"
-              style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
+            <DatePicker value={to} onChange={setTo} placeholder="To" className="w-40" />
             <button onClick={fetchAnalytics}
               className="px-3 py-2 rounded-lg text-xs font-medium"
               style={{ background: "var(--text)", color: "var(--bg)" }}>
@@ -202,12 +200,15 @@ export default function AnalyticsPage() {
             <div className="p-5 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium" style={{ color: "var(--text)" }}>Top Performers</h3>
-                <select value={sort} onChange={(e) => setSort(e.target.value as "revenue" | "deals")}
-                  className="px-2 py-1 rounded-md text-xs"
-                  style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}>
-                  <option value="revenue">By Revenue</option>
-                  <option value="deals">By Deals Closed</option>
-                </select>
+                <Select
+                  value={sort}
+                  onChange={(v) => setSort(v as "revenue" | "deals")}
+                  className="w-40"
+                  options={[
+                    { label: "By Revenue", value: "revenue" },
+                    { label: "By Deals Closed", value: "deals" },
+                  ]}
+                />
               </div>
               <div className="space-y-2">
                 {data.topPerformers.length === 0 && (

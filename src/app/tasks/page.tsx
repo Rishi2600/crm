@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
+import Select from "@/components/ui/Select";
+import DatePicker from "@/components/ui/DatePicker";
 import { TasksApiResponse, TaskResponse, AssignableUser } from "@/types/tasks";
 
 const FILTERS = [
@@ -228,31 +230,22 @@ export default function TasksPage() {
                   className="px-3 py-2 rounded-lg text-sm col-span-2"
                   style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
                 />
-                <select
+                <Select
                   value={priority}
-                  onChange={(e) => setPriority(e.target.value)}
-                  className="px-3 py-2 rounded-lg text-sm"
-                  style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-                >
-                  <option>High</option><option>Medium</option><option>Low</option>
-                </select>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="px-3 py-2 rounded-lg text-sm"
-                  style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
+                  onChange={setPriority}
+                  options={[
+                    { label: "High", value: "High" },
+                    { label: "Medium", value: "Medium" },
+                    { label: "Low", value: "Low" },
+                  ]}
                 />
-                <select
+                <DatePicker value={dueDate} onChange={setDueDate} placeholder="Due date" />
+                <Select
                   value={assignedTo}
-                  onChange={(e) => setAssignedTo(e.target.value)}
-                  className="px-3 py-2 rounded-lg text-sm col-span-2"
-                  style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-                >
-                  {assignableUsers.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
+                  onChange={setAssignedTo}
+                  className="col-span-2"
+                  options={assignableUsers.map((u) => ({ label: u.name, value: u.id }))}
+                />
               </div>
               <button
                 onClick={handleCreateTask}
@@ -314,14 +307,11 @@ export default function TasksPage() {
                 </div>
                 <div className="col-span-1 text-xs" style={{ color: "var(--text-muted)" }}>{formatDate(t.dueDate)}</div>
                 <div className="col-span-2">
-                  <select
+                  <Select
                     value={t.status}
-                    onChange={(e) => handleStatusChange(t.id, e.target.value)}
-                    className="px-2 py-1 rounded-md text-xs"
-                    style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-                  >
-                    {STATUS_OPTIONS.map((s) => <option key={s}>{s}</option>)}
-                  </select>
+                    onChange={(v) => handleStatusChange(t.id, v)}
+                    options={STATUS_OPTIONS.map((s) => ({ label: s, value: s }))}
+                  />
                 </div>
               </div>
             ))}

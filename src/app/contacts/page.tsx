@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
+import Select from "@/components/ui/Select";
 import { ContactsApiResponse, ContactResponse } from "@/types/contacts";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -106,16 +107,16 @@ export default function ContactsPage() {
             </div>
 
             {/* Sort */}
-            <select
+            <Select
               value={sort}
-              onChange={(e) => { setSort(e.target.value as typeof sort); setPage(1); }}
-              className="px-3 py-2 rounded-lg text-sm"
-              style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-            >
-              <option value="createdAt">Newest</option>
-              <option value="name">Name</option>
-              <option value="dealValue">Deal Value</option>
-            </select>
+              onChange={(v) => { setSort(v as typeof sort); setPage(1); }}
+              className="w-40"
+              options={[
+                { label: "Newest", value: "createdAt" },
+                { label: "Name", value: "name" },
+                { label: "Deal Value", value: "dealValue" },
+              ]}
+            />
           </div>
 
           {/* Table */}
