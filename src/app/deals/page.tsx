@@ -189,7 +189,7 @@ export default function DealsPage() {
           )}
 
           {/* Loading */}
-          {loading && <LoadingState label="Loading pipeline..." />}
+          {loading && <LoadingState />}
 
           {/* Kanban board */}
           {!loading && (

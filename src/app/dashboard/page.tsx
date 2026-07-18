@@ -44,7 +44,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg)" }}>
-        <LoadingState label="Loading dashboard..." />
+        <LoadingState />
       </div>
     );
   }

@@ -70,7 +70,7 @@ export default function AnalyticsPage() {
       <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
         <Sidebar />
         <main className="flex-1 ml-52 flex items-center justify-center min-h-screen">
-          <LoadingState label="Loading analytics..." />
+          <LoadingState />
         </main>
       </div>
     );

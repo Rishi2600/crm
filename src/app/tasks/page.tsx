@@ -278,7 +278,7 @@ export default function TasksPage() {
               <div className="col-span-2">Status</div>
             </div>
 
-            {loading && <LoadingState variant="inline" label="Loading tasks..." />}
+            {loading && <LoadingState variant="inline" />}
 
             {!loading && tasks.length === 0 && (
               <div className="px-4 py-10 text-center text-xs" style={{ color: "var(--text-muted)" }}>No tasks found</div>

@@ -135,7 +135,7 @@ export default function ContactsPage() {
             </div>
 
             {/* Loading */}
-            {loading && <LoadingState variant="inline" label="Loading contacts..." />}
+            {loading && <LoadingState variant="inline" />}
 
             {/* Error */}
             {!loading && error && (
