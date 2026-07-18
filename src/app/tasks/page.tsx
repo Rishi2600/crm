@@ -6,6 +6,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
+import LoadingState from "@/components/ui/LoadingState";
 import { TasksApiResponse, TaskResponse, AssignableUser } from "@/types/tasks";
 
 const FILTERS = [
@@ -277,9 +278,7 @@ export default function TasksPage() {
               <div className="col-span-2">Status</div>
             </div>
 
-            {loading && (
-              <div className="px-4 py-10 text-center text-xs" style={{ color: "var(--text-muted)" }}>Loading...</div>
-            )}
+            {loading && <LoadingState variant="inline" label="Loading tasks..." />}
 
             {!loading && tasks.length === 0 && (
               <div className="px-4 py-10 text-center text-xs" style={{ color: "var(--text-muted)" }}>No tasks found</div>

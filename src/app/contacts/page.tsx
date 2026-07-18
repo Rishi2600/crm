@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import Select from "@/components/ui/Select";
+import LoadingState from "@/components/ui/LoadingState";
 import { ContactsApiResponse, ContactResponse } from "@/types/contacts";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -134,11 +135,7 @@ export default function ContactsPage() {
             </div>
 
             {/* Loading */}
-            {loading && (
-              <div className="px-4 py-10 text-center text-xs" style={{ color: "var(--text-muted)" }}>
-                Loading...
-              </div>
-            )}
+            {loading && <LoadingState variant="inline" label="Loading contacts..." />}
 
             {/* Error */}
             {!loading && error && (

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import Select from "@/components/ui/Select";
+import LoadingState from "@/components/ui/LoadingState";
 import { DealsPipelineResponse, DealCardResponse, DealStageSummary } from "@/types/deals";
 
 const STAGES = ["Qualification", "Proposal", "Negotiation", "Closed Won"];
@@ -188,11 +189,7 @@ export default function DealsPage() {
           )}
 
           {/* Loading */}
-          {loading && (
-            <div className="text-center py-16 text-xs" style={{ color: "var(--text-muted)" }}>
-              Loading pipeline...
-            </div>
-          )}
+          {loading && <LoadingState label="Loading pipeline..." />}
 
           {/* Kanban board */}
           {!loading && (

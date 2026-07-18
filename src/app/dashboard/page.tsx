@@ -9,6 +9,7 @@ import PipelineChart from "@/components/charts/PipelineChart";
 import ActivityFeed from "@/components/cards/ActivityFeed";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
+import LoadingState from "@/components/ui/LoadingState";
 
 function formatCurrency(n: number): string {
   if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
@@ -43,7 +44,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg)" }}>
-        <span className="text-sm" style={{ color: "var(--text-muted)" }}>Loading...</span>
+        <LoadingState label="Loading dashboard..." />
       </div>
     );
   }

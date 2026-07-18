@@ -44,3 +44,8 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 :focus-visible { outline: 1.5px solid var(--text); outline-offset: 2px; }
+
+@keyframes crm-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

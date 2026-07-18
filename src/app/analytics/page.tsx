@@ -7,6 +7,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
+import LoadingState from "@/components/ui/LoadingState";
 import { AnalyticsDashboardResponse } from "@/types/analytics";
 
 function formatCurrency(n: number): string {
@@ -69,7 +70,7 @@ export default function AnalyticsPage() {
       <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
         <Sidebar />
         <main className="flex-1 ml-52 flex items-center justify-center min-h-screen">
-          <span className="text-sm" style={{ color: "var(--text-muted)" }}>Loading analytics...</span>
+          <LoadingState label="Loading analytics..." />
         </main>
       </div>
     );
