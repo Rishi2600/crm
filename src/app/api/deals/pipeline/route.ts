@@ -54,6 +54,21 @@ export async function GET(request: NextRequest) {
     // `contact` is a required to-one relation on Deal (direct nesting works),
     // but `contact.company` is optional (needs `is:` — same gotcha we hit
     // building Contacts search).
+    // Same multi-word full-name fix as Contacts — see that route for the
+    // full explanation. Here it's nested one level deeper through `contact`.
+    const searchTokens = search.split(/\s+/).filter(Boolean);
+    const fullNameFilter =
+      searchTokens.length >= 2
+        ? [{
+            contact: {
+              AND: [
+                { firstName: { contains: searchTokens[0], mode: "insensitive" as const } },
+                { lastName: { contains: searchTokens.slice(1).join(" "), mode: "insensitive" as const } },
+              ],
+            },
+          }]
+        : [];
+
     const searchFilter = search
       ? {
           OR: [
@@ -61,6 +76,7 @@ export async function GET(request: NextRequest) {
             { contact: { firstName: { contains: search, mode: "insensitive" as const } } },
             { contact: { lastName: { contains: search, mode: "insensitive" as const } } },
             { contact: { company: { is: { companyName: { contains: search, mode: "insensitive" as const } } } } },
+            ...fullNameFilter,
           ],
         }
       : {};

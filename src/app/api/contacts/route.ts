@@ -44,76 +44,121 @@ export async function GET(request: NextRequest) {
       userRole === "ADMIN" || userRole === "MANAGER" ? {} : { ownerId: userId };
 
     // ── Search filter — case-insensitive, partial match across 4 fields ────
+    // Multi-word searches ("John Smith") need special handling — firstName
+    // and lastName are separate columns, so a plain OR-per-column check
+    // fails once the search string spans both (neither column alone
+    // contains the full two-word string). Splitting on the first space and
+    // matching each half to its own column fixes "First Last" search while
+    // leaving single-word / email / company search behavior unchanged.
+    const searchTokens = search.split(/\s+/).filter(Boolean);
+    const fullNameFilter =
+      searchTokens.length >= 2
+        ? [{
+            AND: [
+              { firstName: { contains: searchTokens[0], mode: "insensitive" as const } },
+              { lastName: { contains: searchTokens.slice(1).join(" "), mode: "insensitive" as const } },
+            ],
+          }]
+        : [];
+
     const searchFilter = search
       ? {
           OR: [
             { firstName: { contains: search, mode: "insensitive" as const } },
             { lastName: { contains: search, mode: "insensitive" as const } },
             { email: { contains: search, mode: "insensitive" as const } },
-            { company: { companyName: { contains: search, mode: "insensitive" as const } } },
+            { company: { is: { companyName: { contains: search, mode: "insensitive" as const } } } },
+            ...fullNameFilter,
           ],
         }
       : {};
 
     const where = { ...ownerFilter, ...searchFilter };
 
-    // ── Fetch all matching contacts (with company joined) ───────────────────
-    // Note: dealValue is computed (not a stored column), so we can't ORDER BY
-    // it in SQL. We fetch matches, compute dealValue, sort in-memory, then
-    // paginate. Fine at this table size; would need a materialized/cached
-    // dealValue column if the contacts table grows into the hundreds of
-    // thousands of rows.
-    const allMatches = await prisma.contact.findMany({
-      where,
-      include: { company: { select: { companyName: true } } },
-    });
-
-    // ── Compute dealValue per contact (all non-LOST deals) ──────────────────
-    const contactIds = allMatches.map((c) => c.id);
-
-    const dealSums = contactIds.length
-      ? await prisma.deal.groupBy({
-          by: ["contactId"],
-          where: { contactId: { in: contactIds }, status: { not: "LOST" } },
-          _sum: { amount: true },
-        })
-      : [];
-
-    const dealValueMap = new Map<string, number>();
-    dealSums.forEach((d) => dealValueMap.set(d.contactId, Number(d._sum.amount ?? 0)));
-
-    // ── Shape into ContactResponse + keep createdAt alongside for sorting ──
-    // (createdAt isn't part of the public response shape, so we carry it in
-    // a parallel tuple rather than polluting ContactResponse with an extra field.)
-    const shapedWithDate: Array<{ contact: ContactResponse; createdAt: Date }> = allMatches.map((c) => ({
-      contact: {
-        id: c.id,
-        name: `${c.firstName} ${c.lastName}`,
-        company: c.company?.companyName ?? null,
-        email: c.email,
-        phone: c.phone,
-        location: c.location,
-        dealValue: dealValueMap.get(c.id) ?? 0,
-        status: LEAD_STATUS_LABEL[c.leadStatus] ?? c.leadStatus,
-        isFavourite: c.isFavourite,
-      },
-      createdAt: c.createdAt,
-    }));
-
-    // ── Sort ──────────────────────────────────────────────────────────────
-    shapedWithDate.sort((a, b) => {
-      if (sort === "name") return a.contact.name.localeCompare(b.contact.name);
-      if (sort === "dealValue") return b.contact.dealValue - a.contact.dealValue;
-      return b.createdAt.getTime() - a.createdAt.getTime(); // createdAt DESC (default)
-    });
-
-    const shaped: ContactResponse[] = shapedWithDate.map((s) => s.contact);
-
-    // ── Paginate in-memory ──────────────────────────────────────────────────
-    const total = shaped.length;
+    // ── Total count — needed for pagination metadata regardless of sort ────
+    const total = await prisma.contact.count({ where });
     const totalPages = Math.max(1, Math.ceil(total / limit));
-    const start = (page - 1) * limit;
-    const pageData = shaped.slice(start, start + limit);
+
+    // Fields we actually need on the response — avoids over-fetching
+    // (e.g. password, updatedAt, raw enum values never used in ContactResponse)
+    const contactSelect = {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phone: true,
+      location: true,
+      leadStatus: true,
+      isFavourite: true,
+      createdAt: true,
+      company: { select: { companyName: true } },
+    } as const;
+
+    let pageContactsRaw: Array<{
+      id: string; firstName: string; lastName: string; email: string;
+      phone: string | null; location: string | null; leadStatus: string;
+      isFavourite: boolean; createdAt: Date; company: { companyName: string } | null;
+    }>;
+    let dealValueMap = new Map<string, number>();
+
+    if (sort === "dealValue") {
+      // ── dealValue is computed, not a stored column — can't ORDER BY it in
+      // SQL. We still have to pull every matching row to sort correctly,
+      // then slice the page out in memory. This branch stays O(total matches)
+      // regardless of page size; the name/createdAt branch below is the
+      // actual fix for the common case.
+      const allMatches = await prisma.contact.findMany({ where, select: contactSelect });
+
+      const contactIds = allMatches.map((c) => c.id);
+      const dealSums = contactIds.length
+        ? await prisma.deal.groupBy({
+            by: ["contactId"],
+            where: { contactId: { in: contactIds }, status: { not: "LOST" } },
+            _sum: { amount: true },
+          })
+        : [];
+      dealSums.forEach((d) => dealValueMap.set(d.contactId, Number(d._sum.amount ?? 0)));
+
+      allMatches.sort((a, b) => (dealValueMap.get(b.id) ?? 0) - (dealValueMap.get(a.id) ?? 0));
+
+      const start = (page - 1) * limit;
+      pageContactsRaw = allMatches.slice(start, start + limit);
+    } else {
+      // ── DB-level pagination — the actual fix. Only ever pulls `limit` rows
+      // from Postgres, with sorting and offsetting done by the database
+      // itself instead of fetching everything and slicing in JS.
+      pageContactsRaw = await prisma.contact.findMany({
+        where,
+        select: contactSelect,
+        orderBy: sort === "name" ? { firstName: "asc" } : { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      });
+
+      // dealValue only computed for THIS page's rows, not the whole table
+      const pageIds = pageContactsRaw.map((c) => c.id);
+      const dealSums = pageIds.length
+        ? await prisma.deal.groupBy({
+            by: ["contactId"],
+            where: { contactId: { in: pageIds }, status: { not: "LOST" } },
+            _sum: { amount: true },
+          })
+        : [];
+      dealSums.forEach((d) => dealValueMap.set(d.contactId, Number(d._sum.amount ?? 0)));
+    }
+
+    // ── Shape into ContactResponse ────────────────────────────────────────
+    const pageData: ContactResponse[] = pageContactsRaw.map((c) => ({
+      id: c.id,
+      name: `${c.firstName} ${c.lastName}`,
+      company: c.company?.companyName ?? null,
+      email: c.email,
+      phone: c.phone,
+      location: c.location,
+      dealValue: dealValueMap.get(c.id) ?? 0,
+      status: LEAD_STATUS_LABEL[c.leadStatus] ?? c.leadStatus,
+      isFavourite: c.isFavourite,
+    }));
 
     // ── Empty state ──────────────────────────────────────────────────────────
     const response: ContactsApiResponse = {
