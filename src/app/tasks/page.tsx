@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
@@ -99,8 +99,14 @@ export default function TasksPage() {
   useEffect(() => { fetchTasks(); }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { fetchAssignableUsers(); }, [fetchAssignableUsers]);
 
-  // Debounced search
+  // Debounced search — 🚩 same fix as Contacts/Deals: skip the mount-time
+  // run, since the effect above already fetches on initial load.
+  const isFirstSearchRun = useRef(true);
   useEffect(() => {
+    if (isFirstSearchRun.current) {
+      isFirstSearchRun.current = false;
+      return;
+    }
     const t = setTimeout(() => fetchTasks(), 400);
     return () => clearTimeout(t);
   }, [search]); // eslint-disable-line react-hooks/exhaustive-deps

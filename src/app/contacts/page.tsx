@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
@@ -64,11 +64,27 @@ export default function ContactsPage() {
     }
   }, [page, sort, search, router]);
 
-  // Refetch on page/sort change
+  // Refetch on page/sort change (this ALSO covers the very first load — see
+  // the note below on why the search effect must not duplicate that).
   useEffect(() => { fetchContacts(); }, [page, sort]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debounce search — refetch 400ms after user stops typing
+  // Debounce search — refetch 400ms after user stops typing.
+  // 🚩 Previously this fired unconditionally on mount too (React runs every
+  // effect at least once after the first render, regardless of dependency
+  // values), causing a genuine SECOND fetch ~400ms after the first one on
+  // every page load — not a dev/prod difference, a real duplicate request
+  // in both environments. It only became visually obvious in production
+  // because real network/DB latency stretched the two requests far enough
+  // apart to show two distinct loading flashes; locally both resolved fast
+  // enough to look like one smooth load. The isFirstRun ref below skips
+  // this effect's initial invocation, since the effect above already
+  // handles the mount-time fetch.
+  const isFirstSearchRun = useRef(true);
   useEffect(() => {
+    if (isFirstSearchRun.current) {
+      isFirstSearchRun.current = false;
+      return;
+    }
     const t = setTimeout(() => {
       setPage(1);
       fetchContacts();

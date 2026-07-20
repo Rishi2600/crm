@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
@@ -79,8 +79,16 @@ export default function DealsPage() {
 
   useEffect(() => { fetchPipeline(); }, [sort]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debounce search
+  // Debounce search — 🚩 same fix as Contacts: skip this effect's mount-time
+  // run since the effect above already fetches on initial load. Without
+  // this, every page load fired two requests ~400ms apart (invisible
+  // locally, visibly two loading flashes in production).
+  const isFirstSearchRun = useRef(true);
   useEffect(() => {
+    if (isFirstSearchRun.current) {
+      isFirstSearchRun.current = false;
+      return;
+    }
     const t = setTimeout(() => fetchPipeline(), 400);
     return () => clearTimeout(t);
   }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
