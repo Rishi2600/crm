@@ -6,6 +6,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
+import Dialog from "@/components/ui/Dialog";
 import LoadingState from "@/components/ui/LoadingState";
 import { TasksApiResponse, TaskResponse, AssignableUser } from "@/types/tasks";
 
@@ -205,38 +206,64 @@ export default function TasksPage() {
                 style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
               />
               <button
-                onClick={() => setShowForm((s) => !s)}
+                onClick={() => setShowForm(true)}
                 className="px-3 py-2 rounded-lg text-xs font-medium"
                 style={{ background: "var(--text)", color: "var(--bg)" }}
               >
-                {showForm ? "Cancel" : "+ New Task"}
+                + New Task
               </button>
             </div>
           </div>
 
-          {/* Create form */}
-          {showForm && (
-            <div className="mb-5 p-4 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              {formError && (
-                <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
-                  {formError}
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Task title"
-                  className="px-3 py-2 rounded-lg text-sm col-span-2"
-                  style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-                />
-                <input
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Description (optional)"
-                  className="px-3 py-2 rounded-lg text-sm col-span-2"
-                  style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-                />
+          {/* Create Task dialog — built as a generic, reusable Dialog so the
+              same component powers future forms (e.g. bulk upload of tasks
+              or deals) without rebuilding this modal pattern each time. */}
+          <Dialog
+            open={showForm}
+            onClose={() => setShowForm(false)}
+            title="New Task"
+            description="Create and assign a task to yourself or a direct report."
+            footer={
+              <>
+                <button
+                  onClick={() => setShowForm(false)}
+                  className="px-4 py-2 rounded-lg text-xs font-medium"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateTask}
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-lg text-xs font-medium"
+                  style={{ background: "var(--text)", color: "var(--bg)", opacity: submitting ? 0.5 : 1 }}
+                >
+                  {submitting ? "Creating..." : "Create Task"}
+                </button>
+              </>
+            }
+          >
+            {formError && (
+              <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
+                {formError}
+              </div>
+            )}
+            <div className="space-y-3">
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Task title"
+                className="w-full px-3 py-2 rounded-lg text-sm"
+                style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
+              />
+              <input
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Description (optional)"
+                className="w-full px-3 py-2 rounded-lg text-sm"
+                style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
+              />
+              <div className="grid grid-cols-2 gap-3">
                 <Select
                   value={priority}
                   onChange={setPriority}
@@ -247,23 +274,14 @@ export default function TasksPage() {
                   ]}
                 />
                 <DatePicker value={dueDate} onChange={setDueDate} placeholder="Due date" />
-                <Select
-                  value={assignedTo}
-                  onChange={setAssignedTo}
-                  className="col-span-2"
-                  options={assignableUsers.map((u) => ({ label: u.name, value: u.id }))}
-                />
               </div>
-              <button
-                onClick={handleCreateTask}
-                disabled={submitting}
-                className="px-4 py-2 rounded-lg text-xs font-medium"
-                style={{ background: "var(--text)", color: "var(--bg)", opacity: submitting ? 0.5 : 1 }}
-              >
-                {submitting ? "Creating..." : "Create Task"}
-              </button>
+              <Select
+                value={assignedTo}
+                onChange={setAssignedTo}
+                options={assignableUsers.map((u) => ({ label: u.name, value: u.id }))}
+              />
             </div>
-          )}
+          </Dialog>
 
           {error && (
             <div className="mb-4 px-3 py-2.5 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--red)" }}>
