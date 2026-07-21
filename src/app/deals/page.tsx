@@ -5,8 +5,12 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import Select from "@/components/ui/Select";
+import DatePicker from "@/components/ui/DatePicker";
+import Dialog from "@/components/ui/Dialog";
 import LoadingState from "@/components/ui/LoadingState";
 import { DealsPipelineResponse, DealCardResponse, DealStageSummary } from "@/types/deals";
+
+interface ContactOption { id: string; name: string; }
 
 const STAGES = ["Qualification", "Proposal", "Negotiation", "Closed Won"];
 
@@ -48,6 +52,17 @@ export default function DealsPage() {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // Create Deal dialog
+  const [showForm, setShowForm] = useState(false);
+  const [contactOptions, setContactOptions] = useState<ContactOption[]>([]);
+  const [title, setTitle] = useState("");
+  const [contactId, setContactId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [stage, setStage] = useState("Qualification");
+  const [expectedCloseDate, setExpectedCloseDate] = useState("");
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchPipeline = useCallback(async () => {
     const token = localStorage.getItem("crm-token");
@@ -92,6 +107,47 @@ export default function DealsPage() {
     const t = setTimeout(() => fetchPipeline(), 400);
     return () => clearTimeout(t);
   }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch a contact list once on mount — populates the create-form dropdown
+  useEffect(() => {
+    const token = localStorage.getItem("crm-token");
+    if (!token) return;
+    fetch("/api/contacts?limit=100", { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json) setContactOptions(json.data.map((c: any) => ({ id: c.id, name: c.name })));
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleCreateDeal() {
+    setFormError("");
+    if (!title.trim()) { setFormError("Title is mandatory"); return; }
+    if (!contactId) { setFormError("Contact is mandatory"); return; }
+    if (!amount || isNaN(Number(amount))) { setFormError("Amount is mandatory and must be a number"); return; }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/deals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("crm-token")}` },
+        body: JSON.stringify({
+          title, contactId, amount: Number(amount), stage,
+          expectedCloseDate: expectedCloseDate || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setFormError(json.message ?? "Failed to create deal"); return; }
+
+      setTitle(""); setContactId(""); setAmount(""); setStage("Qualification"); setExpectedCloseDate("");
+      setShowForm(false);
+      fetchPipeline();
+    } catch {
+      setFormError("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function handleDrop(newStage: string) {
     setDragOverStage(null);
@@ -185,7 +241,64 @@ export default function DealsPage() {
                 { label: "Close Date", value: "expectedCloseDate" },
               ]}
             />
+
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap"
+              style={{ background: "var(--text)", color: "var(--bg)" }}
+            >
+              + New Deal
+            </button>
           </div>
+
+          {/* Create Deal dialog */}
+          <Dialog
+            open={showForm}
+            onClose={() => setShowForm(false)}
+            title="New Deal"
+            description="Add a new deal to the pipeline."
+            footer={
+              <>
+                <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateDeal}
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-lg text-xs font-medium"
+                  style={{ background: "var(--text)", color: "var(--bg)", opacity: submitting ? 0.5 : 1 }}
+                >
+                  {submitting ? "Creating..." : "Create Deal"}
+                </button>
+              </>
+            }
+          >
+            {formError && (
+              <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
+                {formError}
+              </div>
+            )}
+            <div className="space-y-3">
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Deal title"
+                className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
+              <Select
+                value={contactId}
+                onChange={setContactId}
+                placeholder="Select contact"
+                options={contactOptions.map((c) => ({ label: c.name, value: c.id }))}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount ($)" type="number" min="0"
+                  className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
+                <Select
+                  value={stage}
+                  onChange={setStage}
+                  options={STAGES.map((s) => ({ label: s, value: s }))}
+                />
+              </div>
+              <DatePicker value={expectedCloseDate} onChange={setExpectedCloseDate} placeholder="Expected close date" />
+            </div>
+          </Dialog>
 
           {/* Error */}
           {error && (

@@ -40,3 +40,21 @@ export interface StageUpdateResponse {
   message: string;
   deal: DealCardResponse;
 }
+
+// ─── Create Deal Payload ───────────────────────────────────────────────────────
+
+export interface CreateDealPayload {
+  title: string;
+  contactId: string;
+  amount: number;
+  stage?: string;              // defaults to "Qualification"
+  probability?: number;        // 0–100, defaults to 0
+  expectedCloseDate?: string;  // ISO date
+  ownerId?: string;             // defaults to creator — only ADMIN/MANAGER may override, within hierarchy
+}
+
+export interface CreateDealResponse {
+  success: boolean;
+  message: string;
+  data: DealCardResponse;
+}
