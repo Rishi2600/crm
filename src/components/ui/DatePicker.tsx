@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 interface DatePickerProps {
   value: string; // "YYYY-MM-DD" or ""
@@ -29,14 +30,46 @@ function formatDisplay(d: Date) {
 
 export default function DatePicker({ value, onChange, placeholder = "Select date", className = "" }: DatePickerProps) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [rect, setRect] = useState<{ top: number; left: number } | null>(null);
+
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const selectedDate = value ? new Date(value + "T00:00:00") : null;
   const [viewMonth, setViewMonth] = useState(() => selectedDate ?? new Date());
 
+  useEffect(() => setMounted(true), []);
+
+  // Same portal-positioning approach as Select — fixes the calendar
+  // disappearing/clipping when this sits inside a scrollable container
+  // like a Dialog body.
+  const updateRect = useCallback(() => {
+    if (!triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    setRect({ top: r.bottom + 6, left: r.left });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    updateRect();
+    window.addEventListener("scroll", updateRect, true);
+    window.addEventListener("resize", updateRect);
+    return () => {
+      window.removeEventListener("scroll", updateRect, true);
+      window.removeEventListener("resize", updateRect);
+    };
+  }, [open, updateRect]);
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        panelRef.current && !panelRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -60,8 +93,9 @@ export default function DatePicker({ value, onChange, placeholder = "Select date
   }
 
   return (
-    <div ref={rootRef} className={`relative ${className}`}>
+    <div className={`relative ${className}`}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-colors"
@@ -79,13 +113,16 @@ export default function DatePicker({ value, onChange, placeholder = "Select date
         </svg>
       </button>
 
-      {open && (
+      {mounted && open && rect && createPortal(
         <div
-          className="absolute z-20 mt-1.5 p-3 rounded-xl"
+          ref={panelRef}
+          className="fixed z-[100] p-3 rounded-xl"
           style={{
             background: "var(--bg-card)",
             border: "1px solid var(--border)",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+            top: rect.top,
+            left: rect.left,
             width: "260px",
           }}
         >
@@ -160,7 +197,8 @@ export default function DatePicker({ value, onChange, placeholder = "Select date
               Clear date
             </button>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

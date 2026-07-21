@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 
 export interface SelectOption {
   label: string;
@@ -25,13 +26,52 @@ export default function Select({
   align = "left",
 }: SelectProps) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const selected = options.find((o) => o.value === value);
 
+  useEffect(() => setMounted(true), []);
+
+  // Recompute the trigger's on-screen position — used both when opening
+  // and continuously while open, since the dropdown is portaled to
+  // document.body (fixed positioning) rather than living inside whatever
+  // scrollable container the trigger sits in (e.g. a Dialog's body). This
+  // is what makes it immune to being clipped by an ancestor's
+  // `overflow: auto/hidden` — the classic reason a dropdown "disappears"
+  // inside a modal.
+  const updateRect = useCallback(() => {
+    if (!triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    setRect({ top: r.bottom + 6, left: align === "right" ? r.right : r.left, width: r.width });
+  }, [align]);
+
+  useEffect(() => {
+    if (!open) return;
+    updateRect();
+    // Keep position correct if the page/dialog scrolls or the window
+    // resizes while the dropdown is open.
+    window.addEventListener("scroll", updateRect, true);
+    window.addEventListener("resize", updateRect);
+    return () => {
+      window.removeEventListener("scroll", updateRect, true);
+      window.removeEventListener("resize", updateRect);
+    };
+  }, [open, updateRect]);
+
+  // Outside-click must check BOTH the trigger and the portaled panel,
+  // since the panel is no longer a DOM descendant of the trigger's wrapper
+  // once it's rendered via createPortal.
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        panelRef.current && !panelRef.current.contains(target)
+      ) {
         setOpen(false);
       }
     }
@@ -40,8 +80,9 @@ export default function Select({
   }, []);
 
   return (
-    <div ref={rootRef} className={`relative ${className}`}>
+    <div className={`relative ${className}`}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-colors"
@@ -65,16 +106,19 @@ export default function Select({
         </svg>
       </button>
 
-      {open && (
+      {mounted && open && rect && createPortal(
         <div
-          className="absolute z-20 mt-1.5 py-1 rounded-lg overflow-auto"
+          ref={panelRef}
+          className="fixed z-[100] py-1 rounded-lg overflow-auto"
           style={{
             background: "var(--bg-card)",
             border: "1px solid var(--border)",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-            minWidth: "100%",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+            top: rect.top,
+            left: align === "right" ? undefined : rect.left,
+            right: align === "right" ? window.innerWidth - rect.left : undefined,
+            minWidth: rect.width,
             maxHeight: "260px",
-            [align === "right" ? "right" : "left"]: 0,
           }}
         >
           {options.map((opt) => {
@@ -101,7 +145,8 @@ export default function Select({
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
