@@ -34,3 +34,23 @@ export interface ContactsQueryParams {
   limit?: number;
   sort?: "name" | "dealValue" | "createdAt";
 }
+
+// ─── Create Contact Payload ───────────────────────────────────────────────────
+
+export interface CreateContactPayload {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  companyId?: string;
+  location?: string;
+  leadStatus?: string; // "Hot" | "Warm" | "Cold" — defaults to Warm
+  isFavourite?: boolean;
+  ownerId?: string; // defaults to creator — only ADMIN/MANAGER may override, and only within their hierarchy
+}
+
+export interface CreateContactResponse {
+  success: boolean;
+  message: string;
+  data: ContactResponse;
+}

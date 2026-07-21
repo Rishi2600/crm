@@ -2,13 +2,19 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ContactsApiResponse, ContactResponse } from "@/types/contacts";
+import { ContactsApiResponse, ContactResponse, CreateContactPayload, CreateContactResponse } from "@/types/contacts";
 import { ApiError } from "@/types/dashboard";
 
 const LEAD_STATUS_LABEL: Record<string, string> = {
   HOT: "Hot",
   WARM: "Warm",
   COLD: "Cold",
+};
+
+const LABEL_TO_LEAD_STATUS: Record<string, string> = {
+  Hot: "HOT",
+  Warm: "WARM",
+  Cold: "COLD",
 };
 
 export async function GET(request: NextRequest) {
@@ -176,6 +182,116 @@ export async function GET(request: NextRequest) {
     console.error("[GET /api/contacts]", error);
     return NextResponse.json<ApiError>(
       { error: "Internal Server Error", message: "Failed to fetch contacts" },
+      { status: 500 }
+    );
+  }
+}
+
+// ── POST /api/contacts — create ─────────────────────────────────────────────
+export async function POST(request: NextRequest) {
+  try {
+    const userId = request.headers.get("x-user-id");
+    const userRole = request.headers.get("x-user-role");
+
+    if (!userId) {
+      return NextResponse.json<ApiError>(
+        { error: "Unauthorized", message: "Missing user context" },
+        { status: 401 }
+      );
+    }
+
+    const body: CreateContactPayload = await request.json();
+
+    // ── Mandatory field validation ──────────────────────────────────────────
+    if (!body.firstName?.trim()) {
+      return NextResponse.json<ApiError>({ error: "Bad Request", message: "First name is mandatory" }, { status: 400 });
+    }
+    if (!body.lastName?.trim()) {
+      return NextResponse.json<ApiError>({ error: "Bad Request", message: "Last name is mandatory" }, { status: 400 });
+    }
+    if (!body.email?.trim()) {
+      return NextResponse.json<ApiError>({ error: "Bad Request", message: "Email is mandatory" }, { status: 400 });
+    }
+
+    // ── Lead status validation ───────────────────────────────────────────────
+    const leadStatusEnum = body.leadStatus ? LABEL_TO_LEAD_STATUS[body.leadStatus] : "WARM";
+    if (!leadStatusEnum) {
+      return NextResponse.json<ApiError>({ error: "Bad Request", message: "Invalid lead status" }, { status: 400 });
+    }
+
+    // ── Company, if provided, must exist ────────────────────────────────────
+    if (body.companyId) {
+      const company = await prisma.company.findUnique({ where: { id: body.companyId } });
+      if (!company) {
+        return NextResponse.json<ApiError>({ error: "Bad Request", message: "Invalid company" }, { status: 400 });
+      }
+    }
+
+    // 🚩 Owner assignment — same hierarchy-scoped pattern established in the
+    // Tasks module's assignedTo check, reused here rather than independently
+    // designed. Self-assignment always allowed. ADMIN can assign to anyone.
+    // Otherwise (MANAGER/SALES_REP), ownerId must be a direct report.
+    const ownerId = body.ownerId ?? userId;
+    const isSelf = ownerId === userId;
+    const isAdmin = userRole === "ADMIN";
+    if (!isSelf && !isAdmin) {
+      const isDirectReport = await prisma.user.findFirst({ where: { id: ownerId, managerId: userId } });
+      if (!isDirectReport) {
+        return NextResponse.json<ApiError>({ error: "Bad Request", message: "Invalid owner" }, { status: 400 });
+      }
+    }
+
+    // ── Create — email uniqueness enforced at the DB level (Contact.email
+    // is @unique); caught below as a clean 400 rather than a raw 500. ──────
+    let created;
+    try {
+      created = await prisma.contact.create({
+        data: {
+          firstName: body.firstName.trim(),
+          lastName: body.lastName.trim(),
+          email: body.email.trim().toLowerCase(),
+          phone: body.phone ?? null,
+          companyId: body.companyId ?? null,
+          location: body.location ?? null,
+          leadStatus: leadStatusEnum as any,
+          isFavourite: body.isFavourite ?? false,
+          ownerId,
+        },
+        include: { company: { select: { companyName: true } } },
+      });
+    } catch (err: any) {
+      if (err?.code === "P2002") {
+        return NextResponse.json<ApiError>(
+          { error: "Bad Request", message: "A contact with this email already exists" },
+          { status: 400 }
+        );
+      }
+      throw err;
+    }
+
+    const data: ContactResponse = {
+      id: created.id,
+      name: `${created.firstName} ${created.lastName}`,
+      company: created.company?.companyName ?? null,
+      email: created.email,
+      phone: created.phone,
+      location: created.location,
+      dealValue: 0, // brand new contact — no deals yet
+      status: LEAD_STATUS_LABEL[created.leadStatus] ?? created.leadStatus,
+      isFavourite: created.isFavourite,
+    };
+
+    const response: CreateContactResponse = {
+      success: true,
+      message: "Contact created successfully",
+      data,
+    };
+
+    return NextResponse.json(response, { status: 201 });
+  } catch (error) {
+    console.error("[POST /api/contacts]", error);
+    return NextResponse.json<ApiError>(
+      { error: "Internal Server Error", message: "Failed to create contact" },
       { status: 500 }
     );
   }

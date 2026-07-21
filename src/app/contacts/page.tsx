@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import Select from "@/components/ui/Select";
+import Dialog from "@/components/ui/Dialog";
 import LoadingState from "@/components/ui/LoadingState";
 import { ContactsApiResponse, ContactResponse } from "@/types/contacts";
+
+interface Company { id: string; companyName: string; }
 
 const STATUS_COLOR: Record<string, string> = {
   Hot: "var(--red)",
@@ -30,6 +33,19 @@ export default function ContactsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [sort, setSort] = useState<"name" | "dealValue" | "createdAt">("createdAt");
+
+  // Create Contact dialog
+  const [showForm, setShowForm] = useState(false);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [location, setLocation] = useState("");
+  const [companyId, setCompanyId] = useState("");
+  const [leadStatus, setLeadStatus] = useState("Warm");
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchContacts = useCallback(async () => {
     const token = localStorage.getItem("crm-token");
@@ -92,6 +108,46 @@ export default function ContactsPage() {
     return () => clearTimeout(t);
   }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fetch companies once on mount — populates the create-form dropdown
+  useEffect(() => {
+    const token = localStorage.getItem("crm-token");
+    if (!token) return;
+    fetch("/api/companies", { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => { if (json) setCompanies(json.data); })
+      .catch(() => {});
+  }, []);
+
+  async function handleCreateContact() {
+    setFormError("");
+    if (!firstName.trim()) { setFormError("First name is mandatory"); return; }
+    if (!lastName.trim()) { setFormError("Last name is mandatory"); return; }
+    if (!email.trim()) { setFormError("Email is mandatory"); return; }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("crm-token")}` },
+        body: JSON.stringify({
+          firstName, lastName, email, phone: phone || undefined,
+          location: location || undefined, companyId: companyId || undefined, leadStatus,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setFormError(json.message ?? "Failed to create contact"); return; }
+
+      setFirstName(""); setLastName(""); setEmail(""); setPhone("");
+      setLocation(""); setCompanyId(""); setLeadStatus("Warm");
+      setShowForm(false);
+      fetchContacts();
+    } catch {
+      setFormError("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
       <Sidebar />
@@ -134,7 +190,77 @@ export default function ContactsPage() {
                 { label: "Deal Value", value: "dealValue" },
               ]}
             />
+
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap"
+              style={{ background: "var(--text)", color: "var(--bg)" }}
+            >
+              + New Contact
+            </button>
           </div>
+
+          {/* Create Contact dialog — same reusable Dialog used for Tasks */}
+          <Dialog
+            open={showForm}
+            onClose={() => setShowForm(false)}
+            title="New Contact"
+            description="Add a new contact to the CRM."
+            footer={
+              <>
+                <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateContact}
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-lg text-xs font-medium"
+                  style={{ background: "var(--text)", color: "var(--bg)", opacity: submitting ? 0.5 : 1 }}
+                >
+                  {submitting ? "Creating..." : "Create Contact"}
+                </button>
+              </>
+            }
+          >
+            {formError && (
+              <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
+                {formError}
+              </div>
+            )}
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name"
+                  className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
+                <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name"
+                  className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
+              </div>
+              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email"
+                className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
+              <div className="grid grid-cols-2 gap-3">
+                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone (optional)"
+                  className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
+                <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (optional)"
+                  className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Select
+                  value={companyId}
+                  onChange={setCompanyId}
+                  placeholder="Company (optional)"
+                  options={companies.map((c) => ({ label: c.companyName, value: c.id }))}
+                />
+                <Select
+                  value={leadStatus}
+                  onChange={setLeadStatus}
+                  options={[
+                    { label: "Hot", value: "Hot" },
+                    { label: "Warm", value: "Warm" },
+                    { label: "Cold", value: "Cold" },
+                  ]}
+                />
+              </div>
+            </div>
+          </Dialog>
 
           {/* Table */}
           <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
