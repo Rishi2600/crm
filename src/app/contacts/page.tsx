@@ -163,9 +163,9 @@ export default function ContactsPage() {
 
         <div className="p-8">
           {/* Controls */}
-          <div className="flex items-center gap-3 mb-5">
+          <div className="flex items-center justify-between mb-5">
             {/* Search */}
-            <div className="relative flex-1 max-w-xs">
+            <div className="relative max-w-xs w-full">
               <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
                 className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }}>
                 <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
@@ -179,25 +179,27 @@ export default function ContactsPage() {
               />
             </div>
 
-            {/* Sort */}
-            <Select
-              value={sort}
-              onChange={(v) => { setSort(v as typeof sort); setPage(1); }}
-              className="w-40"
-              options={[
-                { label: "Newest", value: "createdAt" },
-                { label: "Name", value: "name" },
-                { label: "Deal Value", value: "dealValue" },
-              ]}
-            />
+            <div className="flex items-center gap-3">
+              {/* Sort */}
+              <Select
+                value={sort}
+                onChange={(v) => { setSort(v as typeof sort); setPage(1); }}
+                className="w-40"
+                options={[
+                  { label: "Newest", value: "createdAt" },
+                  { label: "Name", value: "name" },
+                  { label: "Deal Value", value: "dealValue" },
+                ]}
+              />
 
-            <button
-              onClick={() => setShowForm(true)}
-              className="px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap"
-              style={{ background: "var(--text)", color: "var(--bg)" }}
-            >
-              + New Contact
-            </button>
+              <button
+                onClick={() => setShowForm(true)}
+                className="px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap"
+                style={{ background: "var(--text)", color: "var(--bg)" }}
+              >
+                + New Contact
+              </button>
+            </div>
           </div>
 
           {/* Create Contact dialog — same reusable Dialog used for Tasks */}
