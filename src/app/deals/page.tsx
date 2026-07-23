@@ -8,6 +8,8 @@ import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 import Dialog from "@/components/ui/Dialog";
 import LoadingState from "@/components/ui/LoadingState";
+import { useToast } from "@/components/ui/Toast";
+import { Trash2 } from "lucide-react";
 import { DealsPipelineResponse, DealCardResponse, DealStageSummary } from "@/types/deals";
 
 interface ContactOption { id: string; name: string; }
@@ -43,6 +45,7 @@ function computeSummary(pipeline: DealCardResponse[]): DealStageSummary[] {
 
 export default function DealsPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [pipeline, setPipeline] = useState<DealCardResponse[]>([]);
   const [summary, setSummary] = useState<DealStageSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -137,16 +140,26 @@ export default function DealsPage() {
         }),
       });
       const json = await res.json();
-      if (!res.ok) { setFormError(json.message ?? "Failed to create deal"); return; }
+      if (!res.ok) {
+        setFormError(json.message ?? "Failed to create deal");
+        showToast(json.message ?? "Failed to create deal", "error");
+        return;
+      }
 
       setTitle(""); setContactId(""); setAmount(""); setStage("Qualification"); setExpectedCloseDate("");
       setShowForm(false);
+      showToast("Deal created successfully");
       fetchPipeline();
     } catch {
       setFormError("Network error. Please try again.");
+      showToast("Network error. Please try again.", "error");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleDeleteClick() {
+    showToast("Delete is not available yet", "info");
   }
 
   async function handleDrop(newStage: string) {
@@ -185,6 +198,9 @@ export default function DealsPage() {
         setPipeline(previousPipeline);
         setSummary(previousSummary);
         setError("Failed to move deal. Please try again.");
+        showToast("Failed to move deal. Please try again.", "error");
+      } else {
+        showToast(`Deal moved to ${newStage}`);
       }
       // On success: nothing further to do — UI already reflects the new
       // state, and the server now agrees with it. No refetch, no flash.
@@ -192,6 +208,7 @@ export default function DealsPage() {
       setPipeline(previousPipeline);
       setSummary(previousSummary);
       setError("Failed to move deal. Please try again.");
+      showToast("Failed to move deal. Please try again.", "error");
     } finally {
       setUpdatingId(null);
       setDraggedId(null);
@@ -369,8 +386,18 @@ export default function DealsPage() {
                             opacity: updatingId === deal.id ? 0.5 : draggedId === deal.id ? 0.3 : 1,
                           }}
                         >
-                          <div className="text-sm font-medium mb-1" style={{ color: "var(--text)" }}>
-                            {deal.title}
+                          <div className="flex items-start justify-between mb-1">
+                            <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                              {deal.title}
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteClick(); }}
+                              aria-label="Delete deal"
+                              style={{ color: "var(--text-faint)", flexShrink: 0 }}
+                              className="ml-2"
+                            >
+                              <Trash2 size={12} strokeWidth={1.8} />
+                            </button>
                           </div>
                           <div className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
                             {deal.contactName}

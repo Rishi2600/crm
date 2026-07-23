@@ -8,6 +8,8 @@ import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 import Dialog from "@/components/ui/Dialog";
 import LoadingState from "@/components/ui/LoadingState";
+import { useToast } from "@/components/ui/Toast";
+import { Trash2 } from "lucide-react";
 import { TasksApiResponse, TaskResponse, AssignableUser } from "@/types/tasks";
 
 const FILTERS = [
@@ -32,6 +34,7 @@ function formatDate(iso: string | null): string {
 
 export default function TasksPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [tasks, setTasks] = useState<TaskResponse[]>([]);
   const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,18 +133,25 @@ export default function TasksPage() {
       const json = await res.json();
       if (!res.ok) {
         setFormError(json.message ?? "Failed to create task");
+        showToast(json.message ?? "Failed to create task", "error");
         return;
       }
 
       // Reset form + close it, then refresh the list
       setTitle(""); setDescription(""); setPriority("Medium"); setDueDate("");
       setShowForm(false);
+      showToast("Task created successfully");
       fetchTasks();
     } catch {
       setFormError("Network error. Please try again.");
+      showToast("Network error. Please try again.", "error");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleDeleteClick() {
+    showToast("Delete is not available yet", "info");
   }
 
   async function handleStatusChange(taskId: string, newStatus: string) {
@@ -158,10 +168,14 @@ export default function TasksPage() {
       if (!res.ok) {
         setTasks(previous); // roll back on rejection (ownership, invalid status, etc.)
         setError("Failed to update task status.");
+        showToast("Failed to update task status.", "error");
+      } else {
+        showToast(`Task marked as ${newStatus}`);
       }
     } catch {
       setTasks(previous);
       setError("Failed to update task status.");
+      showToast("Failed to update task status.", "error");
     }
   }
 
@@ -296,10 +310,11 @@ export default function TasksPage() {
             }}>
               <div className="col-span-4">Task</div>
               <div className="col-span-2">Assigned To</div>
-              <div className="col-span-2">Related Deal</div>
+              <div className="col-span-1">Related Deal</div>
               <div className="col-span-1">Priority</div>
               <div className="col-span-1">Due</div>
               <div className="col-span-2">Status</div>
+              <div className="col-span-1"></div>
             </div>
 
             {loading && <LoadingState variant="inline" />}
@@ -321,7 +336,7 @@ export default function TasksPage() {
                   )}
                 </div>
                 <div className="col-span-2 text-xs" style={{ color: "var(--text-muted)" }}>{t.assignedTo}</div>
-                <div className="col-span-2 text-xs" style={{ color: "var(--text-muted)" }}>{t.relatedDeal ?? "—"}</div>
+                <div className="col-span-1 text-xs truncate" style={{ color: "var(--text-muted)" }}>{t.relatedDeal ?? "—"}</div>
                 <div className="col-span-1">
                   <span className="inline-flex items-center gap-1.5 text-xs">
                     <span className="w-1.5 h-1.5 rounded-full" style={{ background: PRIORITY_COLOR[t.priority] }} />
@@ -335,6 +350,11 @@ export default function TasksPage() {
                     onChange={(v) => handleStatusChange(t.id, v)}
                     options={STATUS_OPTIONS.map((s) => ({ label: s, value: s }))}
                   />
+                </div>
+                <div className="col-span-1 flex justify-center">
+                  <button onClick={handleDeleteClick} aria-label="Delete task" style={{ color: "var(--text-faint)" }}>
+                    <Trash2 size={13} strokeWidth={1.8} />
+                  </button>
                 </div>
               </div>
             ))}

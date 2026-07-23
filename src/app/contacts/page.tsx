@@ -7,9 +7,9 @@ import ThemeToggle from "@/components/layout/ThemeToggle";
 import Select from "@/components/ui/Select";
 import Dialog from "@/components/ui/Dialog";
 import LoadingState from "@/components/ui/LoadingState";
+import { useToast } from "@/components/ui/Toast";
+import { Trash2 } from "lucide-react";
 import { ContactsApiResponse, ContactResponse } from "@/types/contacts";
-
-interface Company { id: string; companyName: string; }
 
 const STATUS_COLOR: Record<string, string> = {
   Hot: "var(--red)",
@@ -25,6 +25,7 @@ function formatCurrency(n: number): string {
 
 export default function ContactsPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [contacts, setContacts] = useState<ContactResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -36,13 +37,12 @@ export default function ContactsPage() {
 
   // Create Contact dialog
   const [showForm, setShowForm] = useState(false);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
-  const [companyId, setCompanyId] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [leadStatus, setLeadStatus] = useState("Warm");
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -108,16 +108,6 @@ export default function ContactsPage() {
     return () => clearTimeout(t);
   }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch companies once on mount — populates the create-form dropdown
-  useEffect(() => {
-    const token = localStorage.getItem("crm-token");
-    if (!token) return;
-    fetch("/api/companies", { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => { if (json) setCompanies(json.data); })
-      .catch(() => {});
-  }, []);
-
   async function handleCreateContact() {
     setFormError("");
     if (!firstName.trim()) { setFormError("First name is mandatory"); return; }
@@ -131,21 +121,31 @@ export default function ContactsPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("crm-token")}` },
         body: JSON.stringify({
           firstName, lastName, email, phone: phone || undefined,
-          location: location || undefined, companyId: companyId || undefined, leadStatus,
+          location: location || undefined, companyName: companyName || undefined, leadStatus,
         }),
       });
       const json = await res.json();
-      if (!res.ok) { setFormError(json.message ?? "Failed to create contact"); return; }
+      if (!res.ok) {
+        setFormError(json.message ?? "Failed to create contact");
+        showToast(json.message ?? "Failed to create contact", "error");
+        return;
+      }
 
       setFirstName(""); setLastName(""); setEmail(""); setPhone("");
-      setLocation(""); setCompanyId(""); setLeadStatus("Warm");
+      setLocation(""); setCompanyName(""); setLeadStatus("Warm");
       setShowForm(false);
+      showToast("Contact created successfully");
       fetchContacts();
     } catch {
       setFormError("Network error. Please try again.");
+      showToast("Network error. Please try again.", "error");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleDeleteClick() {
+    showToast("Delete is not available yet", "info");
   }
 
   return (
@@ -245,12 +245,8 @@ export default function ContactsPage() {
                   className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Select
-                  value={companyId}
-                  onChange={setCompanyId}
-                  placeholder="Company (optional)"
-                  options={companies.map((c) => ({ label: c.companyName, value: c.id }))}
-                />
+                <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Company (optional)"
+                  className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
                 <Select
                   value={leadStatus}
                   onChange={setLeadStatus}
@@ -275,7 +271,7 @@ export default function ContactsPage() {
               <div className="col-span-2">Location</div>
               <div className="col-span-2 text-right">Deal Value</div>
               <div className="col-span-2">Status</div>
-              <div className="col-span-1 text-center">★</div>
+              <div className="col-span-1 text-center"> </div>
             </div>
 
             {/* Loading */}
@@ -324,8 +320,15 @@ export default function ContactsPage() {
                     <span style={{ color: "var(--text)" }}>{c.status}</span>
                   </span>
                 </div>
-                <div className="col-span-1 text-center">
+                <div className="col-span-1 flex items-center justify-center gap-2">
                   <span style={{ color: c.isFavourite ? "#d97706" : "var(--text-faint)" }}>★</span>
+                  <button
+                    onClick={handleDeleteClick}
+                    aria-label="Delete contact"
+                    style={{ color: "var(--text-faint)" }}
+                  >
+                    <Trash2 size={13} strokeWidth={1.8} />
+                  </button>
                 </div>
               </div>
             ))}

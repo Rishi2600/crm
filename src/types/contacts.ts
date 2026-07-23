@@ -42,7 +42,7 @@ export interface CreateContactPayload {
   lastName: string;
   email: string;
   phone?: string;
-  companyId?: string;
+  companyName?: string;
   location?: string;
   leadStatus?: string; // "Hot" | "Warm" | "Cold" — defaults to Warm
   isFavourite?: boolean;

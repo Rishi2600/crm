@@ -219,12 +219,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json<ApiError>({ error: "Bad Request", message: "Invalid lead status" }, { status: 400 });
     }
 
-    // ── Company, if provided, must exist ────────────────────────────────────
-    if (body.companyId) {
-      const company = await prisma.company.findUnique({ where: { id: body.companyId } });
-      if (!company) {
-        return NextResponse.json<ApiError>({ error: "Bad Request", message: "Invalid company" }, { status: 400 });
-      }
+    // ── Company: find-or-create by name — keeps the frontend to a plain
+    // text input instead of a dropdown that needs its own GET call. ────────
+    let companyId: string | null = null;
+    if (body.companyName?.trim()) {
+      const trimmedName = body.companyName.trim();
+      const existing = await prisma.company.findFirst({
+        where: { companyName: { equals: trimmedName, mode: "insensitive" } },
+      });
+      companyId = existing
+        ? existing.id
+        : (await prisma.company.create({ data: { companyName: trimmedName } })).id;
     }
 
     // 🚩 Owner assignment — same hierarchy-scoped pattern established in the
@@ -251,7 +256,7 @@ export async function POST(request: NextRequest) {
           lastName: body.lastName.trim(),
           email: body.email.trim().toLowerCase(),
           phone: body.phone ?? null,
-          companyId: body.companyId ?? null,
+          companyId,
           location: body.location ?? null,
           leadStatus: leadStatusEnum as any,
           isFavourite: body.isFavourite ?? false,
