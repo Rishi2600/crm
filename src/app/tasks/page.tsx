@@ -150,8 +150,24 @@ export default function TasksPage() {
     }
   }
 
-  function handleDeleteClick() {
-    showToast("Delete is not available yet", "info");
+  async function handleDeleteTask(taskId: string, taskTitle: string) {
+    if (!window.confirm(`Delete "${taskTitle}"? This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token()}` },
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        showToast(json.message ?? "Failed to delete task", "error");
+        return;
+      }
+      showToast("Task deleted successfully");
+      fetchTasks();
+    } catch {
+      showToast("Network error. Please try again.", "error");
+    }
   }
 
   async function handleStatusChange(taskId: string, newStatus: string) {
@@ -352,7 +368,7 @@ export default function TasksPage() {
                   />
                 </div>
                 <div className="col-span-1 flex justify-center">
-                  <button onClick={handleDeleteClick} aria-label="Delete task" style={{ color: "var(--text-faint)" }}>
+                  <button onClick={() => handleDeleteTask(t.id, t.title)} aria-label="Delete task" style={{ color: "var(--text-faint)" }}>
                     <Trash2 size={13} strokeWidth={1.8} />
                   </button>
                 </div>
