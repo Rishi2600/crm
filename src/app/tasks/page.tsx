@@ -9,6 +9,7 @@ import DatePicker from "@/components/ui/DatePicker";
 import Dialog from "@/components/ui/Dialog";
 import LoadingState from "@/components/ui/LoadingState";
 import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Trash2 } from "lucide-react";
 import { TasksApiResponse, TaskResponse, AssignableUser } from "@/types/tasks";
 
@@ -35,6 +36,7 @@ function formatDate(iso: string | null): string {
 export default function TasksPage() {
   const router = useRouter();
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const [tasks, setTasks] = useState<TaskResponse[]>([]);
   const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,7 +153,13 @@ export default function TasksPage() {
   }
 
   async function handleDeleteTask(taskId: string, taskTitle: string) {
-    if (!window.confirm(`Delete "${taskTitle}"? This cannot be undone.`)) return;
+    const confirmed = await confirm({
+      title: "Delete task",
+      message: `Delete "${taskTitle}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
 
     try {
       const res = await fetch(`/api/tasks/${taskId}`, {
