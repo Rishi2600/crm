@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle2, XCircle, Info } from "lucide-react";
@@ -43,6 +43,20 @@ const ICON_COLOR: Record<ToastType, string> = {
 export default function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
+  // 🚩 Fixes a hydration mismatch: `typeof document !== "undefined"` is
+  // true immediately on the client, even during React's first hydration
+  // pass — before that pass has finished reconciling against the
+  // server-rendered HTML. That made the client's first render already
+  // differ from the server's (server never renders the portal at all),
+  // which is exactly what "error while hydrating" means. `mounted` starts
+  // false on both server AND the client's first render (useState's initial
+  // value is synchronous and identical on both), only flipping to true
+  // inside useEffect — which only runs AFTER hydration completes. Same
+  // pattern already used correctly in Dialog/Select/DatePicker; this was
+  // the one place it got missed.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const showToast = useCallback((message: string, type: ToastType = "success") => {
     const id = Math.random().toString(36).slice(2);
     setToasts((prev) => [...prev, { id, message, type }]);
@@ -57,7 +71,7 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      {typeof document !== "undefined" &&
+      {mounted &&
         createPortal(
           <div className="fixed bottom-5 right-5 z-[200] flex flex-col gap-2 items-end">
             <AnimatePresence>
