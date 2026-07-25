@@ -8,7 +8,6 @@ import Select from "@/components/ui/Select";
 import Dialog from "@/components/ui/Dialog";
 import LoadingState from "@/components/ui/LoadingState";
 import { useToast } from "@/components/ui/Toast";
-import { Trash2 } from "lucide-react";
 import { ContactsApiResponse, ContactResponse } from "@/types/contacts";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -144,10 +143,6 @@ export default function ContactsPage() {
     }
   }
 
-  function handleDeleteClick() {
-    showToast("Delete is not available yet", "info");
-  }
-
   return (
     <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
       <Sidebar />
@@ -271,7 +266,7 @@ export default function ContactsPage() {
               <div className="col-span-2">Location</div>
               <div className="col-span-2 text-right">Deal Value</div>
               <div className="col-span-2">Status</div>
-              <div className="col-span-1 text-center"> </div>
+              <div className="col-span-1 text-center">★</div>
             </div>
 
             {/* Loading */}
@@ -320,15 +315,8 @@ export default function ContactsPage() {
                     <span style={{ color: "var(--text)" }}>{c.status}</span>
                   </span>
                 </div>
-                <div className="col-span-1 flex items-center justify-center gap-2">
+                <div className="col-span-1 text-center">
                   <span style={{ color: c.isFavourite ? "#d97706" : "var(--text-faint)" }}>★</span>
-                  <button
-                    onClick={handleDeleteClick}
-                    aria-label="Delete contact"
-                    style={{ color: "var(--text-faint)" }}
-                  >
-                    <Trash2 size={13} strokeWidth={1.8} />
-                  </button>
                 </div>
               </div>
             ))}
