@@ -8,6 +8,7 @@ import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 import Dialog from "@/components/ui/Dialog";
 import LoadingState from "@/components/ui/LoadingState";
+import { useToast } from "@/components/ui/Toast";
 import { DealsPipelineResponse, DealCardResponse, DealStageSummary } from "@/types/deals";
 
 interface ContactOption { id: string; name: string; }
@@ -43,6 +44,13 @@ function computeSummary(pipeline: DealCardResponse[]): DealStageSummary[] {
 
 export default function DealsPage() {
   const router = useRouter();
+  // 🚩 Only used for the backward-move validation message — every other
+  // Deals action (create, drag success, network errors) still uses the
+  // inline setError banner, per the earlier decision to remove toast from
+  // this page. This one case is narrow: the message needs to auto-clear
+  // (a persistent banner that survives until reload is worse UX for a
+  // "you did something invalid, here's why" message than for a real error).
+  const { showToast } = useToast();
   const [pipeline, setPipeline] = useState<DealCardResponse[]>([]);
   const [summary, setSummary] = useState<DealStageSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -165,7 +173,7 @@ export default function DealsPage() {
     // only caller got the check right.
     if (STAGES.indexOf(newStage) < STAGES.indexOf(deal.stage)) {
       setDraggedId(null);
-      setError("Deals can only move forward through the pipeline.");
+      showToast(`Can't move from ${deal.stage} to ${newStage}`, "error");
       return;
     }
 
@@ -353,7 +361,7 @@ export default function DealsPage() {
                       e.preventDefault();
                       if (!isValidTarget) {
                         setDragOverStage(null);
-                        setError("Deals can only move forward through the pipeline.");
+                        showToast(`Can't move from ${draggedDeal?.stage} to ${stage}`, "error");
                         return;
                       }
                       handleDrop(stage);
