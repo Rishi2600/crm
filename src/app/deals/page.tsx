@@ -159,6 +159,16 @@ export default function DealsPage() {
     const deal = pipeline.find((d) => d.id === draggedId);
     if (!deal || deal.stage === newStage) { setDraggedId(null); return; }
 
+    // Defensive duplicate of the same check the onDrop handler already does
+    // before calling this function — kept here too since handleDrop is the
+    // one function actually talking to the server, and shouldn't assume its
+    // only caller got the check right.
+    if (STAGES.indexOf(newStage) < STAGES.indexOf(deal.stage)) {
+      setDraggedId(null);
+      setError("Deals can only move forward through the pipeline.");
+      return;
+    }
+
     const token = localStorage.getItem("crm-token");
     setUpdatingId(draggedId);
 
@@ -325,17 +335,35 @@ export default function DealsPage() {
                 const stageSummary = summaryFor(stage);
                 const isDragOver = dragOverStage === stage;
 
+                // Forward-only movement — a column is a valid drop target
+                // only if its stage index is >= the dragged deal's current
+                // stage index. Checked here too (not just server-side) so
+                // invalid columns visibly don't highlight during drag,
+                // rather than letting the drop appear to succeed and then
+                // silently reverting after a rejected request.
+                const draggedDeal = pipeline.find((d) => d.id === draggedId);
+                const isValidTarget = !draggedDeal || STAGES.indexOf(stage) >= STAGES.indexOf(draggedDeal.stage);
+
                 return (
                   <div
                     key={stage}
-                    onDragOver={(e) => { e.preventDefault(); setDragOverStage(stage); }}
+                    onDragOver={(e) => { e.preventDefault(); if (isValidTarget) setDragOverStage(stage); }}
                     onDragLeave={() => setDragOverStage(null)}
-                    onDrop={(e) => { e.preventDefault(); handleDrop(stage); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (!isValidTarget) {
+                        setDragOverStage(null);
+                        setError("Deals can only move forward through the pipeline.");
+                        return;
+                      }
+                      handleDrop(stage);
+                    }}
                     className="rounded-xl p-3 transition-colors"
                     style={{
                       background: isDragOver ? "var(--bg-subtle)" : "transparent",
                       border: `1px solid ${isDragOver ? "var(--text-muted)" : "var(--border)"}`,
                       minHeight: "60vh",
+                      opacity: draggedId && !isValidTarget ? 0.5 : 1,
                     }}
                   >
                     {/* Column header */}

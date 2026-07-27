@@ -20,6 +20,22 @@ const LABEL_TO_STAGE: Record<string, string> = {
   "Closed Won": "CLOSED_WON",
 };
 
+// 🚩 Business rule: deals only move FORWARD through the pipeline —
+// Qualification → Proposal → Negotiation → Closed Won — never backward.
+// Skipping stages forward is allowed (e.g. a hot lead jumping straight to
+// Negotiation); only a move to a LOWER index than the deal's current stage
+// is rejected. No role-based override exists yet — Admin/Manager are
+// blocked the same as everyone else. Flagged as a real limitation: there's
+// currently no way to correct a mistaken forward move without direct DB
+// access. Revisit with an explicit override permission if that becomes a
+// practical problem.
+const STAGE_ORDER: Record<string, number> = {
+  QUALIFICATION: 0,
+  PROPOSAL: 1,
+  NEGOTIATION: 2,
+  CLOSED_WON: 3,
+};
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -73,6 +89,19 @@ export async function PATCH(
       return NextResponse.json<ApiError>(
         { error: "Forbidden", message: "You are not authorized to update this deal" },
         { status: 403 }
+      );
+    }
+
+    // ── Forward-only movement check ──────────────────────────────────────────
+    const currentOrder = STAGE_ORDER[existingDeal.stage];
+    const newOrder = STAGE_ORDER[stageEnum];
+    if (newOrder < currentOrder) {
+      return NextResponse.json<ApiError>(
+        {
+          error: "Bad Request",
+          message: `Cannot move a deal backward — it's already at ${STAGE_LABEL[existingDeal.stage]}`,
+        },
+        { status: 400 }
       );
     }
 
