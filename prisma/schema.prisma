@@ -36,6 +36,7 @@ model User {
   assignedTasks  Task[]         @relation("TaskAssignee")
   createdTasks   Task[]         @relation("TaskCreator")
   taskActivities TaskActivity[]
+  followUps      FollowUp[]
 
   @@map("users")
 }
@@ -73,19 +74,45 @@ model Contact {
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
+  // ─── Lead lifecycle — added for the Dashboard's Lead Insights tab ─────────
+  // These are a THIRD axis on a contact, alongside `status` (lifecycle) and
+  // `leadStatus` (Hot/Warm/Cold sales temperature). None of the Lead Insights
+  // KPI cards could be answered from those two: "Fresh", "Converted" etc. are
+  // pipeline positions, not temperatures, so they get their own enum rather
+  // than overloading one that already means something else.
+  //
+  // stage/source are deliberately SEPARATE fields: "Referred" describes where
+  // a lead came from and can be true of a lead at any stage, so folding it
+  // into the stage enum would make a referred-and-converted lead impossible
+  // to represent.
+  leadStage  LeadStage  @default(FRESH) @map("lead_stage")
+  leadSource LeadSource @default(DIRECT) @map("lead_source")
+
+  // "Revived" and "Re-Enquired" are transition counters, not states — a lead
+  // that was closed and later reopened is still sitting at some stage, so
+  // neither can live in the stage enum either. revivedAt doubles as the
+  // timestamp the Lead Insights date filter uses for the Revived card.
+  revivedAt      DateTime? @map("revived_at")
+  reEnquiryCount Int       @default(0) @map("re_enquiry_count")
+
   // Relations
   owner         User           @relation(fields: [ownerId], references: [id])
   company       Company?       @relation(fields: [companyId], references: [id])
   deals         Deal[]
   taskAttendees TaskAttendee[] // meeting attendance, via Tasks module
+  followUps     FollowUp[]
 
-  // Indexes — per story's performance section
+  // Indexes — per story's performance section, plus the lead-lifecycle
+  // columns the Lead Insights KPI counts group by.
   @@index([email])
   @@index([companyId])
   @@index([ownerId])
   @@index([createdAt])
   @@index([firstName])
   @@index([lastName])
+  @@index([leadStage])
+  @@index([leadSource])
+  @@index([revivedAt])
   @@map("contacts")
 }
 
@@ -110,9 +137,10 @@ model Deal {
   updatedAt         DateTime    @updatedAt @map("updated_at")
 
   // Relations
-  contact Contact @relation(fields: [contactId], references: [id])
-  owner   User    @relation(fields: [ownerId], references: [id])
-  tasks   Task[]  // tasks optionally linked via Task.relatedDealId
+  contact   Contact    @relation(fields: [contactId], references: [id])
+  owner     User       @relation(fields: [ownerId], references: [id])
+  tasks     Task[] // tasks optionally linked via Task.relatedDealId
+  followUps FollowUp[]
 
   // Indexes — per Deals Pipeline story's performance section, plus
   // closedAt/amount added for Analytics & Reports
@@ -233,6 +261,55 @@ model TaskAttendee {
   @@map("task_attendees")
 }
 
+// ─── 9. FOLLOW-UPS ───────────────────────────────────────────────────────────
+// Added for the Dashboard's Follow-Up Insights tab. Deliberately its OWN
+// table rather than another TaskType, because a follow-up and a to-do answer
+// different questions: a task is work assigned to a user, a follow-up is a
+// scheduled touchpoint with a contact that has an outcome (did they pick up?
+// were they interested?). Folding them together would mean every Follow-Up
+// KPI count silently included unrelated to-dos, and the Tasks list would fill
+// up with call reminders.
+//
+// Kept separate from TaskActivity (activityType FOLLOW_UP) too — those rows
+// are descriptive notes hanging off a task and carry no status or completion
+// of their own, so Pending/Completed/Overdue can't be computed from them.
+
+model FollowUp {
+  id          String           @id @default(cuid())
+  contactId   String           @map("contact_id")
+  dealId      String?          @map("deal_id") // optional — not every follow-up is about a deal
+  ownerId     String           @map("owner_id")
+  scheduledAt DateTime         @map("scheduled_at")
+  completedAt DateTime?        @map("completed_at")
+  status      FollowUpStatus   @default(PENDING)
+  outcome     FollowUpOutcome? // only meaningful once completed
+  notes       String?
+
+  // Counter rather than a RESCHEDULED status — a follow-up that was moved
+  // twice and then completed is still Completed; the reschedules are history,
+  // not the current state. Keeping them as a status would make the Rescheduled
+  // and Completed cards mutually exclusive, which isn't what they mean.
+  rescheduleCount Int @default(0) @map("reschedule_count")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  contact Contact @relation(fields: [contactId], references: [id])
+  deal    Deal?   @relation(fields: [dealId], references: [id])
+  owner   User    @relation(fields: [ownerId], references: [id])
+
+  // Indexes — every Follow-Up Insights KPI filters on owner + one of
+  // status/scheduledAt, and the trend graph buckets by scheduledAt.
+  @@index([contactId])
+  @@index([dealId])
+  @@index([ownerId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([completedAt])
+  @@map("follow_ups")
+}
+
 // ─── ENUMS ───────────────────────────────────────────────────────────────────
 
 enum UserRole {
@@ -258,6 +335,46 @@ enum LeadStatus {
   HOT
   WARM
   COLD
+}
+
+// Where a lead currently sits in its lifecycle — the axis the Lead Insights
+// KPI cards count by. Mutually exclusive by design: a lead is at exactly one
+// of these at any moment.
+enum LeadStage {
+  FRESH
+  INTERESTED
+  CONVERTED
+  CLOSED
+  IRRELEVANT
+}
+
+// Where the lead came from. REFERRAL is what the "Referred Leads" card counts.
+enum LeadSource {
+  DIRECT
+  REFERRAL
+  WEBSITE
+  CAMPAIGN
+  EVENT
+  OTHER
+}
+
+// MISSED vs CLOSED: a missed follow-up is one whose time passed without
+// being actioned and was explicitly marked as such; a PENDING one whose
+// scheduledAt is simply in the past is "Overdue" — derived at query time
+// rather than stored, so it can't drift out of date.
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  MISSED
+}
+
+enum FollowUpOutcome {
+  CONNECTED
+  NOT_CONNECTED
+  INTERESTED
+  NOT_INTERESTED
+  CALLBACK_REQUESTED
+  CONVERTED
 }
 
 enum DealStatus {

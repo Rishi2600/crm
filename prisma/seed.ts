@@ -1,5 +1,17 @@
 // // prisma/seed.ts
-import { PrismaClient, DealStatus, DealStage, ActivityType, EntityType, UserRole, LeadStatus } from "@prisma/client";
+import {
+  PrismaClient,
+  DealStatus,
+  DealStage,
+  ActivityType,
+  EntityType,
+  UserRole,
+  LeadStatus,
+  LeadStage,
+  LeadSource,
+  FollowUpStatus,
+  FollowUpOutcome,
+} from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -83,6 +95,26 @@ async function main() {
                        "Seattle, WA","Denver, CO","Miami, FL","Atlanta, GA","Portland, OR"];
   const leadStatuses = [LeadStatus.HOT, LeadStatus.WARM, LeadStatus.COLD];
 
+  const daysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return d; };
+
+  // Lead lifecycle distributions for the Dashboard's Lead Insights cards.
+  // Weighted rather than a flat round-robin so the KPI grid reads like a real
+  // funnel (most leads still fresh, a few converted, fewer written off)
+  // instead of nine identical numbers.
+  const leadStages = [
+    LeadStage.FRESH, LeadStage.FRESH, LeadStage.FRESH,
+    LeadStage.INTERESTED, LeadStage.INTERESTED,
+    LeadStage.CONVERTED, LeadStage.CONVERTED,
+    LeadStage.CLOSED,
+    LeadStage.IRRELEVANT,
+    LeadStage.FRESH,
+  ];
+  const leadSources = [
+    LeadSource.DIRECT, LeadSource.REFERRAL, LeadSource.WEBSITE, LeadSource.CAMPAIGN,
+    LeadSource.REFERRAL, LeadSource.EVENT, LeadSource.DIRECT, LeadSource.WEBSITE,
+    LeadSource.REFERRAL, LeadSource.OTHER,
+  ];
+
   const contacts = [];
   for (let i = 0; i < 30; i++) {
     const company = companies[i % companies.length];
@@ -100,6 +132,19 @@ async function main() {
         leadStatus: leadStatuses[i % leadStatuses.length],
         isFavourite: i % 5 === 0, // every 5th contact favourited
         ownerId: owner.id,
+
+        // Lead lifecycle — backs the Lead Insights KPI cards.
+        leadStage: leadStages[i % leadStages.length],
+        leadSource: leadSources[i % leadSources.length],
+        // Every 7th lead was previously written off and later brought back.
+        revivedAt: i % 7 === 0 ? daysAgo(i % 25) : null,
+        // Every 4th lead has come back asking again.
+        reEnquiryCount: i % 4 === 0 ? 1 + (i % 2) : 0,
+
+        // Spread across the last ~60 days rather than all landing on "now" —
+        // without this the Trends graph is a single bar on today's date and
+        // every date-range preset except "Today" comes back empty.
+        createdAt: daysAgo((i * 2) % 60),
       },
     });
     contacts.push(contact);
@@ -218,10 +263,82 @@ async function main() {
 
   console.log("✅ Tasks created");
 
+  // ── Follow-Ups ─────────────────────────────────────────────────────────────
+  // Backs the Dashboard's Follow-Up Insights cards and the "Follow-Ups" series
+  // on the Trends graph. Two per contact, scheduled across a window that
+  // straddles today so each card has something to count: past+PENDING rows
+  // become "Overdue", rows landing on today become "Due Today", and the rest
+  // spread over the coming fortnight as genuinely upcoming.
+  const followUpStatuses = [
+    FollowUpStatus.COMPLETED, FollowUpStatus.COMPLETED, FollowUpStatus.PENDING,
+    FollowUpStatus.MISSED, FollowUpStatus.PENDING,
+  ];
+  const followUpOutcomes = [
+    FollowUpOutcome.CONNECTED, FollowUpOutcome.INTERESTED, FollowUpOutcome.CONVERTED,
+    FollowUpOutcome.NOT_INTERESTED, FollowUpOutcome.CALLBACK_REQUESTED, FollowUpOutcome.NOT_CONNECTED,
+  ];
+  const followUpNotes = [
+    "Left voicemail, will retry",
+    "Walked through pricing tiers",
+    "Asked for a revised quote",
+    "Not the decision maker — referred internally",
+    "Wants to revisit next quarter",
+    "Ready to move forward",
+  ];
+
+  const followUpData: any[] = [];
+  contacts.forEach((contact, i) => {
+    for (let j = 0; j < 2; j++) {
+      const n = i * 2 + j;
+      const status = followUpStatuses[n % followUpStatuses.length];
+
+      // Offset walks from ~40 days ago to ~14 days out; every 9th lands
+      // exactly on today so the "Due Today" card is never a flat zero.
+      const offsetDays = n % 9 === 0 ? 0 : 14 - (n % 55);
+      const scheduledAt = new Date();
+      scheduledAt.setDate(scheduledAt.getDate() + offsetDays);
+      scheduledAt.setHours(9 + (n % 8), (n % 4) * 15, 0, 0);
+
+      // A follow-up in the future can't already be done — otherwise the seed
+      // would produce rows that the app's own flow could never create.
+      const isPast = offsetDays < 0;
+      const resolvedStatus = isPast ? status : FollowUpStatus.PENDING;
+      const isCompleted = resolvedStatus === FollowUpStatus.COMPLETED;
+
+      const completedAt = isCompleted
+        ? new Date(scheduledAt.getTime() + (n % 6) * 60 * 60 * 1000) // same day, a few hours later
+        : null;
+
+      // Only completed follow-ups have an outcome — a pending one hasn't
+      // happened yet, and a missed one by definition had no conversation.
+      const outcome = isCompleted ? followUpOutcomes[n % followUpOutcomes.length] : null;
+
+      // Link roughly half to one of the contact's own deals; the rest are
+      // general touchpoints with no deal attached.
+      const contactDeal = n % 2 === 0 ? deals.find((d) => d.contactId === contact.id) : undefined;
+
+      followUpData.push({
+        contactId: contact.id,
+        dealId: contactDeal?.id ?? null,
+        ownerId: contact.ownerId,
+        scheduledAt,
+        completedAt,
+        status: resolvedStatus,
+        outcome,
+        notes: followUpNotes[n % followUpNotes.length],
+        rescheduleCount: n % 5 === 0 ? 1 + (n % 2) : 0,
+      });
+    }
+  });
+
+  const followUps = await Promise.all(followUpData.map((f) => prisma.followUp.create({ data: f })));
+  console.log(`✅ ${followUps.length} Follow-Ups created`);
+
   console.log("\n🎉 Seeding complete!");
   console.log(`   Companies:  ${companies.length}`);
   console.log(`   Contacts:   ${contacts.length}`);
   console.log(`   Deals:      ${deals.length}`);
+  console.log(`   Follow-Ups: ${followUps.length}`);
   console.log("\n📧 Login credentials:");
   console.log("   Admin:    admin@crm.com  / password123");
   console.log("   Manager:  usman@crm.com  / password123");
