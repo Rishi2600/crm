@@ -639,25 +639,59 @@ export default function LeadsPage() {
             )}
 
             {!loading && !error && leads.map((lead, i) => (
+              // `group` + `group-hover` keeps this in CSS rather than React
+              // state: hovering 20 rows would otherwise be 20 re-renders, and
+              // the row you are pointing at would repaint the whole table.
               <div
                 key={lead.id}
-                className="grid grid-cols-12 px-4 py-3 text-sm items-center"
+                className="group grid grid-cols-12 px-4 py-3 text-sm items-center"
                 style={{ borderBottom: i < leads.length - 1 ? "1px solid var(--border)" : "none" }}
               >
                 <div className="col-span-3 min-w-0">
-                  <button
-                    onClick={() => router.push(`/leads/${lead.id}`)}
-                    className="text-left hover:underline truncate block w-full"
-                    style={{ color: "var(--text)" }}
-                  >
+                  {/* Plain text, not a button — the Open column at the end of
+                      the row is the one way into a lead, so making the name a
+                      second door added nothing but a stray underline. */}
+                  <div className="truncate" style={{ color: "var(--text)" }}>
                     {lead.name}
-                  </button>
-                  <div className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>
-                    {lead.phone ?? "—"} · {lead.email}
                   </div>
-                  <div className="text-xs mt-0.5 truncate" style={{ color: "var(--text-faint)" }}>
-                    {lead.company ?? "No company"} · {lead.leadAge}d old
-                    {lead.reEnquiryCount > 0 && ` · re-enquired ${lead.reEnquiryCount}×`}
+
+                  {/* Contact detail, revealed on hover so the resting table is
+                      just a column of names and stays scannable.
+
+                      🚩 Animated with grid-template-rows 0fr → 1fr, NOT
+                      max-height. max-height has to be given a number larger
+                      than the content, so the row reaches full height partway
+                      through the transition and then sits still for the rest
+                      of it — the stall is what read as janky. `1fr` resolves
+                      to exactly the content height, so the easing curve
+                      applies across the whole movement.
+
+                      The inner wrapper's `overflow-hidden` is required, not
+                      decorative: it does the clipping AND drops the grid
+                      item's automatic minimum size to zero, without which the
+                      row would refuse to collapse to 0fr at rest.
+
+                      `group-focus-within` matters as much as `group-hover` — a
+                      keyboard user tabbing through this row's buttons would
+                      otherwise never see the phone number or company. The text
+                      stays in the DOM while collapsed, so screen readers still
+                      reach it. */}
+                  <div
+                    className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out
+                               group-hover:grid-rows-[1fr] group-focus-within:grid-rows-[1fr]"
+                  >
+                    <div
+                      className="overflow-hidden opacity-0 transition-opacity duration-200 ease-out
+                                 group-hover:opacity-100 group-focus-within:opacity-100"
+                    >
+                      <div className="text-xs pt-1 truncate" style={{ color: "var(--text-muted)" }}>
+                        {lead.phone ?? "—"} · {lead.email}
+                      </div>
+                      <div className="text-xs pt-0.5 truncate" style={{ color: "var(--text-faint)" }}>
+                        {lead.company ?? "No company"} · {lead.leadAge}d old
+                        {lead.reEnquiryCount > 0 && ` · re-enquired ${lead.reEnquiryCount}×`}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
