@@ -360,17 +360,39 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const created = await prisma.followUp.create({
-      data: {
-        contactId: body.contactId,
-        dealId: body.dealId ?? null,
-        ownerId,
-        scheduledAt,
-        notes: body.notes?.trim() || null,
-        // status defaults to PENDING; it reads as "Planned" until its time
-        // passes, with no write needed to flip it.
-      },
-      select: followUpSelect,
+    // The follow-up and the lead-timeline entry for it are written together:
+    // the Leads module promises a lead's history is complete, and a scheduled
+    // touchpoint that never shows up on the lead it was scheduled against
+    // would quietly break that promise. Added when the Leads module shipped —
+    // every existing caller of this route (the Follow-up page, the Contacts
+    // row button) gets the timeline entry for free.
+    const created = await prisma.$transaction(async (tx) => {
+      const followUp = await tx.followUp.create({
+        data: {
+          contactId: body.contactId,
+          dealId: body.dealId ?? null,
+          ownerId,
+          scheduledAt,
+          notes: body.notes?.trim() || null,
+          // status defaults to PENDING; it reads as "Planned" until its time
+          // passes, with no write needed to flip it.
+        },
+        select: followUpSelect,
+      });
+
+      await tx.leadHistory.create({
+        data: {
+          contactId: body.contactId,
+          userId,
+          type: "FOLLOW_UP_SCHEDULED",
+          toValue: scheduledAt.toLocaleString("en-US", {
+            month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+          }),
+          remark: body.notes?.trim() || null,
+        },
+      });
+
+      return followUp;
     });
 
     const response: CreateFollowUpResponse = {

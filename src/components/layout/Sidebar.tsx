@@ -10,6 +10,13 @@ const NAV = [
       <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
     </svg>
   )},
+  { label: "Leads",      href: "/leads",      icon: (
+    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <polyline points="17 11 19 13 23 9"/>
+    </svg>
+  )},
   { label: "Contacts",   href: "/contacts",   icon: (
     <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
       <circle cx="9" cy="7" r="4"/><path d="M3 21v-1a6 6 0 0 1 6-6h0a6 6 0 0 1 6 6v1"/>
@@ -65,7 +72,10 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 p-3 space-y-0.5">
         {NAV.map((item) => {
-          const isActive = pathname === item.href;
+          // Prefix match, not equality — a detail route like /leads/<id> has
+          // to keep its section highlighted. Guarded on the "/" so /deals
+          // can never light up for a hypothetical /deals-archive.
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <button
               key={item.href}

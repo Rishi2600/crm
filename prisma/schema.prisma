@@ -37,6 +37,7 @@ model User {
   createdTasks   Task[]         @relation("TaskCreator")
   taskActivities TaskActivity[]
   followUps      FollowUp[]
+  leadHistory    LeadHistory[]
 
   @@map("users")
 }
@@ -70,7 +71,7 @@ model Contact {
   leadStatus  LeadStatus    @default(WARM) @map("lead_status")
   isFavourite Boolean       @default(false) @map("is_favourite")
   ownerId     String        @map("owner_id")
-  status      ContactStatus @default(ACTIVE)   // lifecycle: kept alongside leadStatus
+  status      ContactStatus @default(ACTIVE) // lifecycle: kept alongside leadStatus
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
@@ -95,12 +96,33 @@ model Contact {
   revivedAt      DateTime? @map("revived_at")
   reEnquiryCount Int       @default(0) @map("re_enquiry_count")
 
+  // ─── Lead desk — added for the Leads module ───────────────────────────────
+  // subStatus is the SECOND level of leadStage, not a replacement for it: a
+  // lead at stage FRESH can be Untouched or already Contacted, and both still
+  // count on the "Fresh Leads" KPI card. Which sub-statuses are legal for a
+  // given stage is enforced at the API layer (lib/leads.ts), not by the DB —
+  // the pairing is a business rule that changes far more often than a schema
+  // migration should.
+  leadSubStatus LeadSubStatus @default(UNTOUCHED) @map("lead_sub_status")
+
+  // 0–100, validated at the API layer. Stored rather than computed because
+  // agents override it by hand; a derived score would silently discard that.
+  leadScore Int @default(0) @map("lead_score")
+
+  // The SPECIFIC origin ("The Tribune", "Feb Webinar") as free text, next to
+  // the coarse leadSource enum it belongs to. Kept separate so the Source
+  // filter stays a fixed dropdown while the name stays open-ended — turning
+  // every new campaign name into an enum value would need a migration each
+  // time.
+  sourceName String? @map("source_name")
+
   // Relations
   owner         User           @relation(fields: [ownerId], references: [id])
   company       Company?       @relation(fields: [companyId], references: [id])
   deals         Deal[]
   taskAttendees TaskAttendee[] // meeting attendance, via Tasks module
   followUps     FollowUp[]
+  history       LeadHistory[]
 
   // Indexes — per story's performance section, plus the lead-lifecycle
   // columns the Lead Insights KPI counts group by.
@@ -113,28 +135,30 @@ model Contact {
   @@index([leadStage])
   @@index([leadSource])
   @@index([revivedAt])
+  @@index([leadSubStatus])
+  @@index([leadScore])
   @@map("contacts")
 }
 
 // ─── 4. DEALS ────────────────────────────────────────────────────────────────
 
 model Deal {
-  id                String      @id @default(cuid())
+  id                String     @id @default(cuid())
   title             String
-  contactId         String      @map("contact_id")
-  ownerId           String      @map("owner_id")
-  amount            Decimal     @db.Decimal(12, 2)
-  stage             DealStage   @default(QUALIFICATION)
-  status            DealStatus  @default(OPEN)
-  probability       Int         @default(0)   // 0–100, validated at the API layer (see deals/pipeline route)
-  expectedCloseDate DateTime?   @map("expected_close_date")
+  contactId         String     @map("contact_id")
+  ownerId           String     @map("owner_id")
+  amount            Decimal    @db.Decimal(12, 2)
+  stage             DealStage  @default(QUALIFICATION)
+  status            DealStatus @default(OPEN)
+  probability       Int        @default(0) // 0–100, validated at the API layer (see deals/pipeline route)
+  expectedCloseDate DateTime?  @map("expected_close_date")
   // Set automatically when a deal's stage moves to CLOSED_WON (see
   // deals/[id]/stage route) — added for Analytics' Sales Cycle KPI and
   // Revenue Trend graph, neither of which can be computed without knowing
   // WHEN a deal actually closed, not just when it was created.
-  closedAt          DateTime?   @map("closed_at")
-  createdAt         DateTime    @default(now()) @map("created_at")
-  updatedAt         DateTime    @updatedAt @map("updated_at")
+  closedAt          DateTime?  @map("closed_at")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
 
   // Relations
   contact   Contact    @relation(fields: [contactId], references: [id])
@@ -165,7 +189,7 @@ model Activity {
   userId       String       @map("user_id")
   activityType ActivityType @map("activity_type")
   entityType   EntityType   @map("entity_type")
-  entityId     String       @map("entity_id")  // no FK — polymorphic reference
+  entityId     String       @map("entity_id") // no FK — polymorphic reference
   message      String
   createdAt    DateTime     @default(now()) @map("created_at")
 
@@ -310,6 +334,55 @@ model FollowUp {
   @@map("follow_ups")
 }
 
+// ─── 10. LEAD HISTORY ────────────────────────────────────────────────────────
+// The Leads module's "complete history" — one row per thing that ever happened
+// to a lead, rendered as a single timeline in the lead detail view.
+//
+// Deliberately NOT the pre-existing `Activity` model. Activity is the
+// dashboard's cross-entity feed: it stores one free-text `message` and nothing
+// else, so it can answer "what happened recently" but not "what was this
+// lead's status before the change, and who changed it". The Assignment Trail
+// and the status timeline both need the before/after pair, and the remark
+// captured at a status change has to hang off that exact transition rather
+// than float beside it. Structured from/to columns are what make that
+// possible; reusing Activity would mean parsing English out of a string.
+//
+// `type` rather than separate tables for remarks/assignments/status changes:
+// they are all "an entry in this lead's timeline", ordered together and read
+// together. Splitting them would mean three queries and a merge-sort in JS
+// every time the detail view opens.
+model LeadHistory {
+  id        String          @id @default(cuid())
+  contactId String          @map("contact_id")
+  // Who performed it. No FK to a "system" user — every entry here is caused
+  // by a real authenticated request.
+  userId    String          @map("user_id")
+  type      LeadHistoryType
+
+  // Before/after, as display labels rather than raw enum values, so the
+  // timeline stays readable even if an enum is later renamed. Null on entry
+  // types that have no transition (a plain remark, say).
+  fromValue String? @map("from_value")
+  toValue   String? @map("to_value")
+
+  // The "lead recording" an agent is prompted for whenever status changes —
+  // required by the status route, optional everywhere else.
+  remark String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  contact Contact @relation(fields: [contactId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  // Composite index — the detail view always reads one lead's entries newest
+  // first, which a single-column index on contactId alone would still make
+  // sort in memory.
+  @@index([contactId, createdAt])
+  @@index([type])
+  @@map("lead_history")
+}
+
 // ─── ENUMS ───────────────────────────────────────────────────────────────────
 
 enum UserRole {
@@ -356,6 +429,42 @@ enum LeadSource {
   CAMPAIGN
   EVENT
   OTHER
+}
+
+// Second level under LeadStage. One flat enum rather than one enum per stage,
+// because Prisma can't express "this column's legal values depend on that
+// column" — the stage→sub-status pairing is enforced in lib/leads.ts instead,
+// which is also where the Sub-Status dropdown gets its options from, so the
+// UI and the validation can never disagree about which pairs are legal.
+enum LeadSubStatus {
+  // FRESH
+  UNTOUCHED
+  CONTACTED
+  NOT_REACHABLE
+  // INTERESTED
+  CALLBACK_REQUESTED
+  PROPOSAL_SENT
+  NEGOTIATING
+  // CONVERTED
+  WON
+  // CLOSED
+  LOST
+  DROPPED
+  // IRRELEVANT
+  JUNK
+  DUPLICATE
+  OUT_OF_AREA
+}
+
+// What a LeadHistory row records. CREATED is written once at lead creation so
+// every timeline has a beginning rather than starting mid-story.
+enum LeadHistoryType {
+  CREATED
+  STATUS_CHANGED
+  ASSIGNED
+  REMARK_ADDED
+  DETAILS_UPDATED
+  FOLLOW_UP_SCHEDULED
 }
 
 // MISSED vs CANCELLED: a missed follow-up is one whose time passed without

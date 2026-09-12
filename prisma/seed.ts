@@ -11,6 +11,8 @@ import {
   LeadSource,
   FollowUpStatus,
   FollowUpOutcome,
+  LeadSubStatus,
+  LeadHistoryType,
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
@@ -115,6 +117,25 @@ async function main() {
     LeadSource.REFERRAL, LeadSource.OTHER,
   ];
 
+  // Sub-statuses, grouped by the stage they're legal under. Mirrors
+  // SUB_STATUS_BY_STATUS in src/lib/leads.ts — seeding an illegal pair like
+  // CONVERTED · UNTOUCHED would produce leads the app itself could never
+  // create and that the status route would refuse to move.
+  const subStatusesByStage: Record<LeadStage, LeadSubStatus[]> = {
+    [LeadStage.FRESH]:      [LeadSubStatus.UNTOUCHED, LeadSubStatus.CONTACTED, LeadSubStatus.NOT_REACHABLE],
+    [LeadStage.INTERESTED]: [LeadSubStatus.CALLBACK_REQUESTED, LeadSubStatus.PROPOSAL_SENT, LeadSubStatus.NEGOTIATING],
+    [LeadStage.CONVERTED]:  [LeadSubStatus.WON],
+    [LeadStage.CLOSED]:     [LeadSubStatus.LOST, LeadSubStatus.DROPPED],
+    [LeadStage.IRRELEVANT]: [LeadSubStatus.JUNK, LeadSubStatus.DUPLICATE, LeadSubStatus.OUT_OF_AREA],
+  };
+
+  // The specific origin behind each coarse source — what the Leads page shows
+  // in its Source column and the detail view's "Source Name" card.
+  const sourceNames = [
+    "The Tribune", "Website Chat", "Partner Referral", "Feb Webinar",
+    "Trade Expo 2026", "Cold Outreach", "Google Ads", "LinkedIn Campaign",
+  ];
+
   const contacts = [];
   for (let i = 0; i < 30; i++) {
     const company = companies[i % companies.length];
@@ -140,6 +161,18 @@ async function main() {
         revivedAt: i % 7 === 0 ? daysAgo(i % 25) : null,
         // Every 4th lead has come back asking again.
         reEnquiryCount: i % 4 === 0 ? 1 + (i % 2) : 0,
+
+        // ── Lead desk ───────────────────────────────────────────────────────
+        // Sub-status is picked from its OWN stage's pool, so every seeded lead
+        // is a pair the UI would actually offer.
+        leadSubStatus:
+          subStatusesByStage[leadStages[i % leadStages.length]][
+            i % subStatusesByStage[leadStages[i % leadStages.length]].length
+          ],
+        // Spread 5–95 rather than random, so the "Highest score" sort and the
+        // score filter both have a real gradient to work against.
+        leadScore: 5 + ((i * 13) % 91),
+        sourceName: sourceNames[i % sourceNames.length],
 
         // Spread across the last ~60 days rather than all landing on "now" —
         // without this the Trends graph is a single bar on today's date and
@@ -334,6 +367,95 @@ async function main() {
 
   const followUps = await Promise.all(followUpData.map((f) => prisma.followUp.create({ data: f })));
   console.log(`✅ ${followUps.length} Follow-Ups created`);
+
+  // ── Lead History ───────────────────────────────────────────────────────────
+  // Backs the Leads module's detail view: the timeline, the Assignment Trail
+  // and the "Last Lead Remark" panel. Without it every lead opens on an empty
+  // history, which reads as broken rather than new.
+  //
+  // Each lead gets a CREATED entry, and anything past FRESH also gets the
+  // STATUS_CHANGED entry that moved it there — carrying the remark, because
+  // the API makes a remark mandatory on every status change and seeded data
+  // that skipped it would depict a state the app can't produce.
+  const statusRemarks = [
+    "Spoke to the lead, genuinely interested in the premium tier",
+    "Asked us to call back after the board meeting",
+    "Budget approved — moving ahead this quarter",
+    "Went with a competitor on price",
+    "Wrong number, not our target segment at all",
+    "Requirement deferred to next financial year",
+  ];
+  const standaloneRemarks = [
+    "Left a voicemail, no answer on the second attempt",
+    "Reception says the decision maker is travelling until Friday",
+    "Sent the brochure over email as requested",
+    "Prefers WhatsApp over calls",
+  ];
+
+  const historyData: any[] = [];
+  contacts.forEach((contact, i) => {
+    const stage = contact.leadStage;
+    const subStatus = contact.leadSubStatus;
+
+    // Timeline entries are stamped RELATIVE to the lead's own creation date,
+    // not to now — a lead created 40 days ago whose history all happened today
+    // would make the detail view nonsensical.
+    const bornAt = contact.createdAt;
+    const afterBirth = (hours: number) => new Date(bornAt.getTime() + hours * 3_600_000);
+
+    historyData.push({
+      contactId: contact.id,
+      userId: contact.ownerId,
+      type: LeadHistoryType.CREATED,
+      toValue: `Fresh · Untouched`,
+      createdAt: bornAt,
+    });
+
+    if (stage !== LeadStage.FRESH) {
+      historyData.push({
+        contactId: contact.id,
+        userId: contact.ownerId,
+        type: LeadHistoryType.STATUS_CHANGED,
+        fromValue: "Fresh · Untouched",
+        toValue: `${stage.charAt(0)}${stage.slice(1).toLowerCase()} · ${subStatus
+          .split("_")
+          .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+          .join(" ")}`,
+        remark: statusRemarks[i % statusRemarks.length],
+        createdAt: afterBirth(24 + (i % 5) * 12),
+      });
+    }
+
+    // Every 3rd lead also carries a plain note with no transition behind it.
+    if (i % 3 === 0) {
+      historyData.push({
+        contactId: contact.id,
+        userId: contact.ownerId,
+        type: LeadHistoryType.REMARK_ADDED,
+        remark: standaloneRemarks[i % standaloneRemarks.length],
+        createdAt: afterBirth(48 + (i % 7) * 6),
+      });
+    }
+
+    // Every 5th lead changed hands once — this is what the Assignment Trail
+    // shows, and with no such rows that panel would always be empty.
+    if (i % 5 === 0 && owners.length > 1) {
+      const previous = owners[(i + 1) % owners.length];
+      if (previous.id !== contact.ownerId) {
+        historyData.push({
+          contactId: contact.id,
+          userId: contact.ownerId,
+          type: LeadHistoryType.ASSIGNED,
+          fromValue: previous.name,
+          toValue: owners.find((o) => o.id === contact.ownerId)?.name ?? "—",
+          createdAt: afterBirth(12 + (i % 4) * 8),
+        });
+      }
+    }
+  });
+
+  await prisma.leadHistory.createMany({ data: historyData });
+  console.log(`✅ ${historyData.length} Lead History entries created`);
 
   console.log("\n🎉 Seeding complete!");
   console.log(`   Companies:  ${companies.length}`);
