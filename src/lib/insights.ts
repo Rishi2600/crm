@@ -1,86 +1,21 @@
 // src/lib/insights.ts
-// Shared helpers for the Dashboard insight routes (/api/insights/*).
+// Time-bucketing for the Dashboard's Trends graph (/api/insights/trends).
 //
-// 🚩 The owner-scoping rule below is the SAME one inlined in Contacts, Deals,
-// Tasks and Analytics — this is the fifth place it was needed, so it lives in
-// one function here rather than being copy-pasted twice more. The four
-// existing routes are deliberately left alone (changing them isn't part of
-// this work), but if that rule ever changes, those four and this one have to
-// move together.
+// Owner scoping and date-param parsing live in @/lib/scope — they're shared
+// with the Follow-up routes, which have nothing to do with bucketing.
 //
 // All bucketing is done in the SERVER's local timezone, matching the rest of
 // the app (Deals/Analytics both format dates with local getters). A deploy in
 // a different timezone than its users will shift day boundaries — a
 // pre-existing, app-wide trait, not something introduced here.
 
-import { prisma } from "@/lib/prisma";
+import { startOfDay, endOfDay, toISODate } from "@/lib/scope";
 import { TrendGranularity, TrendPoint } from "@/types/insights";
 
 /** Widest series any single request may produce (a full year of daily buckets
  *  is 366, so this leaves headroom without letting a hand-typed range ask for
  *  tens of thousands of points). */
 export const MAX_BUCKETS = 400;
-
-// ─── Authorization scope ──────────────────────────────────────────────────────
-
-/**
- * Resolves which owner IDs a user is allowed to see numbers for.
- * ADMIN → undefined (no filter, everyone). MANAGER → self + direct reports
- * (one level, same depth decided in the Tasks module). Everyone else → self.
- */
-export async function resolveOwnerScope(
-  userId: string,
-  userRole: string | null
-): Promise<string[] | undefined> {
-  if (userRole === "ADMIN") return undefined;
-
-  if (userRole === "MANAGER") {
-    const reports = await prisma.user.findMany({
-      where: { managerId: userId },
-      select: { id: true },
-    });
-    return [userId, ...reports.map((r) => r.id)];
-  }
-
-  return [userId];
-}
-
-/** Turns a scope into a Prisma `where` fragment (empty object = no filter). */
-export function ownerWhere(ownerIds: string[] | undefined) {
-  return ownerIds ? { ownerId: { in: ownerIds } } : {};
-}
-
-// ─── Date helpers ─────────────────────────────────────────────────────────────
-
-export function startOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
-
-export function endOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
-}
-
-export function toISODate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-/**
- * Parses a "YYYY-MM-DD" query param into a local Date.
- * `boundary: "end"` widens it to 23:59:59.999 so a `to` of today INCLUDES
- * everything created today — the classic off-by-one-day range bug.
- */
-export function parseDateParam(
-  value: string | null,
-  boundary: "start" | "end"
-): Date | undefined {
-  if (!value) return undefined;
-  const parsed = new Date(`${value}T00:00:00`);
-  if (isNaN(parsed.getTime())) return undefined;
-  return boundary === "end" ? endOfDay(parsed) : startOfDay(parsed);
-}
 
 /** Default window when the caller sends no range, sized to the granularity. */
 export function defaultRange(granularity: TrendGranularity): { from: Date; to: Date } {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CalendarClock,
+  CalendarX,
   CheckCircle2,
   CircleSlash,
   Clock,
@@ -62,6 +63,7 @@ const FOLLOW_UP_CARDS: { key: keyof FollowUpInsightKpis; title: string; icon: Lu
   { key: "dueToday", title: "Due Today", icon: CalendarClock },
   { key: "rescheduled", title: "Rescheduled", icon: RotateCcw },
   { key: "missed", title: "Missed", icon: PhoneMissed },
+  { key: "cancelled", title: "Cancelled", icon: CalendarX },
   { key: "converted", title: "Converted", icon: TrendingUp },
 ];
 
@@ -209,7 +211,8 @@ export default function InsightsPanel({ tab }: InsightsPanelProps) {
           </div>
         )}
 
-        <div className={`grid gap-3 ${tab === "lead" ? "grid-cols-5" : "grid-cols-4"}`}>
+        {/* Both tabs now carry 9 cards — 5 + 4 across two rows. */}
+        <div className="grid gap-3 grid-cols-5">
           {cards.map((card) => (
             <InsightCard
               key={card.key}

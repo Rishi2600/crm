@@ -9,16 +9,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import {
-  resolveOwnerScope,
-  ownerWhere,
-  parseDateParam,
-  defaultRange,
-  bucketByDate,
-  countBuckets,
-  toISODate,
-  MAX_BUCKETS,
-} from "@/lib/insights";
+import { resolveOwnerScope, ownerWhere, parseDateParam, toISODate } from "@/lib/scope";
+import { defaultRange, bucketByDate, countBuckets, MAX_BUCKETS } from "@/lib/insights";
 import { TrendGranularity, TrendMetric, TrendsResponse } from "@/types/insights";
 import { ApiError } from "@/types/dashboard";
 

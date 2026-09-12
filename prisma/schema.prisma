@@ -358,14 +358,17 @@ enum LeadSource {
   OTHER
 }
 
-// MISSED vs CLOSED: a missed follow-up is one whose time passed without
-// being actioned and was explicitly marked as such; a PENDING one whose
-// scheduledAt is simply in the past is "Overdue" — derived at query time
-// rather than stored, so it can't drift out of date.
+// MISSED vs CANCELLED: a missed follow-up is one whose time passed without
+// being actioned; a cancelled one was called off deliberately. A PENDING one
+// whose scheduledAt is simply in the past is "Overdue", and one still in the
+// future is "Planned" — both DERIVED at query time from status + scheduledAt
+// rather than stored, so they can't drift out of date the way a stored flag
+// would the moment the clock passes it.
 enum FollowUpStatus {
   PENDING
   COMPLETED
   MISSED
+  CANCELLED
 }
 
 enum FollowUpOutcome {

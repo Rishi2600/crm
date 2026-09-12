@@ -2,9 +2,11 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { CalendarClock } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import Select from "@/components/ui/Select";
+import DatePicker from "@/components/ui/DatePicker";
 import Dialog from "@/components/ui/Dialog";
 import LoadingState from "@/components/ui/LoadingState";
 import { useToast } from "@/components/ui/Toast";
@@ -45,6 +47,16 @@ export default function ContactsPage() {
   const [leadStatus, setLeadStatus] = useState("Warm");
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Schedule-follow-up dialog — the entry point for "an agent sets a
+  // follow-up on a lead". Posts to the same /api/follow-ups endpoint the
+  // Follow-up page reads, so anything set here shows up there immediately.
+  const [followUpFor, setFollowUpFor] = useState<ContactResponse | null>(null);
+  const [fuDate, setFuDate] = useState("");
+  const [fuTime, setFuTime] = useState("09:00");
+  const [fuNotes, setFuNotes] = useState("");
+  const [fuError, setFuError] = useState("");
+  const [fuSubmitting, setFuSubmitting] = useState(false);
 
   const fetchContacts = useCallback(async () => {
     const token = localStorage.getItem("crm-token");
@@ -140,6 +152,46 @@ export default function ContactsPage() {
       showToast("Network error. Please try again.", "error");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function openFollowUp(contact: ContactResponse) {
+    setFollowUpFor(contact);
+    setFuDate("");
+    setFuTime("09:00");
+    setFuNotes("");
+    setFuError("");
+  }
+
+  async function handleScheduleFollowUp() {
+    setFuError("");
+    if (!followUpFor) return;
+    if (!fuDate) { setFuError("Follow-up date is mandatory"); return; }
+
+    setFuSubmitting(true);
+    try {
+      const res = await fetch("/api/follow-ups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("crm-token")}` },
+        body: JSON.stringify({
+          contactId: followUpFor.id,
+          scheduledDate: fuDate,
+          scheduledTime: fuTime || undefined,
+          notes: fuNotes || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setFuError(json.message ?? "Failed to schedule follow-up");
+        return;
+      }
+
+      setFollowUpFor(null);
+      showToast("Follow-up scheduled successfully");
+    } catch {
+      setFuError("Network error. Please try again.");
+    } finally {
+      setFuSubmitting(false);
     }
   }
 
@@ -315,8 +367,16 @@ export default function ContactsPage() {
                     <span style={{ color: "var(--text)" }}>{c.status}</span>
                   </span>
                 </div>
-                <div className="col-span-1 text-center">
+                <div className="col-span-1 flex items-center justify-center gap-2">
                   <span style={{ color: c.isFavourite ? "#d97706" : "var(--text-faint)" }}>★</span>
+                  <button
+                    onClick={() => openFollowUp(c)}
+                    aria-label={`Schedule follow-up with ${c.name}`}
+                    title="Schedule follow-up"
+                    style={{ color: "var(--text-faint)" }}
+                  >
+                    <CalendarClock size={14} strokeWidth={1.8} />
+                  </button>
                 </div>
               </div>
             ))}
@@ -355,6 +415,54 @@ export default function ContactsPage() {
             </div>
           )}
         </div>
+
+        {/* Schedule follow-up on a lead */}
+        <Dialog
+          open={!!followUpFor}
+          onClose={() => setFollowUpFor(null)}
+          title="Schedule follow-up"
+          description={followUpFor ? `Set a follow-up with ${followUpFor.name}.` : ""}
+          footer={
+            <>
+              <button onClick={() => setFollowUpFor(null)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+                Cancel
+              </button>
+              <button
+                onClick={handleScheduleFollowUp}
+                disabled={fuSubmitting}
+                className="px-4 py-2 rounded-lg text-xs font-medium"
+                style={{ background: "var(--text)", color: "var(--bg)", opacity: fuSubmitting ? 0.5 : 1 }}
+              >
+                {fuSubmitting ? "Scheduling..." : "Schedule"}
+              </button>
+            </>
+          }
+        >
+          {fuError && (
+            <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
+              {fuError}
+            </div>
+          )}
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <DatePicker value={fuDate} onChange={setFuDate} placeholder="Follow-up date" />
+              <input
+                type="time"
+                value={fuTime}
+                onChange={(e) => setFuTime(e.target.value)}
+                className="px-3 py-2 rounded-lg text-sm"
+                style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
+              />
+            </div>
+            <input
+              value={fuNotes}
+              onChange={(e) => setFuNotes(e.target.value)}
+              placeholder="Notes (optional)"
+              className="w-full px-3 py-2 rounded-lg text-sm"
+              style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
+            />
+          </div>
+        </Dialog>
       </main>
     </div>
   );

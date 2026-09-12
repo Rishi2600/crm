@@ -271,7 +271,8 @@ async function main() {
   // spread over the coming fortnight as genuinely upcoming.
   const followUpStatuses = [
     FollowUpStatus.COMPLETED, FollowUpStatus.COMPLETED, FollowUpStatus.PENDING,
-    FollowUpStatus.MISSED, FollowUpStatus.PENDING,
+    FollowUpStatus.MISSED, FollowUpStatus.PENDING, FollowUpStatus.CANCELLED,
+    FollowUpStatus.COMPLETED,
   ];
   const followUpOutcomes = [
     FollowUpOutcome.CONNECTED, FollowUpOutcome.INTERESTED, FollowUpOutcome.CONVERTED,

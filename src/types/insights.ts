@@ -29,6 +29,7 @@ export interface FollowUpInsightKpis {
   dueToday: number;
   rescheduled: number;
   missed: number;
+  cancelled: number;
   converted: number;
 }
 

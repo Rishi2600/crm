@@ -17,7 +17,7 @@ import {
   parseDateParam,
   startOfDay,
   endOfDay,
-} from "@/lib/insights";
+} from "@/lib/scope";
 import {
   InsightsSummaryResponse,
   LeadInsightKpis,
@@ -183,6 +183,11 @@ async function followUpKpis(scope: object, range: object | undefined): Promise<F
     dueToday,
     rescheduled,
     missed: statusCount.get("MISSED") ?? 0,
+    // Cancelled is counted separately rather than folded into Missed — a
+    // called-off follow-up and one nobody actioned mean different things, and
+    // without its own card these rows would sit in Total with no card
+    // accounting for them.
+    cancelled: statusCount.get("CANCELLED") ?? 0,
     converted,
   };
 }
