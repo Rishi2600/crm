@@ -15,11 +15,37 @@ import {
   LeadHistoryType,
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { formatINRExact } from "../src/lib/currency";
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log("🌱 Seeding database...");
+
+  // ── Clean slate ────────────────────────────────────────────────────────────
+  // 🚩 The seed used to CREATE deals, activities, follow-ups and history while
+  // only UPSERTING users and contacts, so every re-run stacked another full set
+  // of children on top of the last. A database seeded three times reported
+  // three times the pipeline, which quietly makes every KPI on the dashboard
+  // wrong — and it's invisible, because each number is individually plausible.
+  //
+  // Deleting first makes the seed idempotent: run it any number of times and
+  // the result is identical. Order matters — foreign keys are RESTRICT, not
+  // CASCADE, so children go before parents.
+  //
+  // ⚠️  This WIPES leads/contacts, deals, tasks and follow-ups. It is a
+  // development seed; never point it at a database holding real customer data.
+  // Users are upserted rather than deleted so logins keep working.
+  console.log("🧹 Clearing previously seeded data...");
+  await prisma.leadHistory.deleteMany();
+  await prisma.followUp.deleteMany();
+  await prisma.taskAttendee.deleteMany();
+  await prisma.taskActivity.deleteMany();
+  await prisma.task.deleteMany();
+  await prisma.activity.deleteMany();
+  await prisma.deal.deleteMany();
+  await prisma.contact.deleteMany();
+  await prisma.company.deleteMany();
 
   // ── Users ──────────────────────────────────────────────────────────────────
   const hashedPassword = await bcrypt.hash("password123", 10);
@@ -68,17 +94,19 @@ async function main() {
   console.log("✅ Users created");
 
   // ── Companies (10) ───────────────────────────────────────────────────────────
+  // Indian B2B names — the app formats money in rupees (see src/lib/currency.ts),
+  // so seed data that reads as a US pipeline made every screen look wrong.
   const companyData = [
-    { companyName: "TechCorp",       industry: "Software",     website: "techcorp.com" },
-    { companyName: "DesignCo",       industry: "Design",       website: "designco.com" },
-    { companyName: "FinTech IO",     industry: "Finance",      website: "fintech.io" },
-    { companyName: "HealthPlus",     industry: "Healthcare",   website: "healthplus.com" },
-    { companyName: "RetailMax",      industry: "Retail",       website: "retailmax.com" },
-    { companyName: "BuildRight",     industry: "Construction", website: "buildright.com" },
-    { companyName: "EduSpark",       industry: "Education",    website: "eduspark.com" },
-    { companyName: "GreenLeaf Foods",industry: "Food & Bev",   website: "greenleaffoods.com" },
-    { companyName: "Skyline Media",  industry: "Media",        website: "skylinemedia.com" },
-    { companyName: "Northwind Logistics", industry: "Logistics", website: "northwindlogistics.com" },
+    { companyName: "Sharma Technologies",  industry: "Software",     website: "sharmatech.in" },
+    { companyName: "Kalpataru Designs",    industry: "Design",       website: "kalpataru.in" },
+    { companyName: "Paytrail Fintech",     industry: "Finance",      website: "paytrail.in" },
+    { companyName: "Arogya Healthcare",    industry: "Healthcare",   website: "arogyacare.in" },
+    { companyName: "Bazaar Retail Group",  industry: "Retail",       website: "bazaarretail.in" },
+    { companyName: "Nirman Infra",         industry: "Construction", website: "nirmaninfra.in" },
+    { companyName: "Vidya Learning",       industry: "Education",    website: "vidyalearning.in" },
+    { companyName: "Annapurna Foods",      industry: "Food & Bev",   website: "annapurnafoods.in" },
+    { companyName: "Prabhat Media",        industry: "Media",        website: "prabhatmedia.in" },
+    { companyName: "Sanchar Logistics",    industry: "Logistics",    website: "sancharlogistics.in" },
   ];
 
   const companies = await Promise.all(
@@ -87,14 +115,14 @@ async function main() {
   console.log("✅ Companies created");
 
   // ── Contacts (30) ──────────────────────────────────────────────────────────
-  const firstNames = ["John","Emily","Michael","Sara","David","Priya","Ahmed","Linda","Carlos","Nina",
-                       "Omar","Grace","Tom","Aisha","Kevin","Maria","Raj","Sophie","Daniel","Zainab",
-                       "Peter","Chloe","Yusuf","Hannah","Marcus","Fatima","Leo","Olivia","Samuel","Layla"];
-  const lastNames  = ["Smith","Johnson","Brown","Davis","Wilson","Sharma","Khan","Martinez","Garcia","Patel",
-                       "Farooq","Lee","Baker","Rahman","Clark","Lopez","Verma","Turner","Kim","Hussain",
-                       "Adams","Bennett","Malik","Foster","Reid","Ali","Nguyen","Bell","Price","Hassan"];
-  const locations  = ["Boston, MA","New York, NY","San Francisco, CA","Chicago, IL","Austin, TX",
-                       "Seattle, WA","Denver, CO","Miami, FL","Atlanta, GA","Portland, OR"];
+  const firstNames = ["Manish","Vikash","Shubham","Dhiraj","Ananya","Priya","Rohit","Neha","Arjun","Kavya",
+                       "Suresh","Meera","Rahul","Aisha","Karthik","Pooja","Raj","Sneha","Aditya","Zainab",
+                       "Vikram","Divya","Yusuf","Ritu","Nikhil","Fatima","Sanjay","Isha","Gaurav","Lakshmi"];
+  const lastNames  = ["Kumar","Sharma","Sudhir","Verma","Iyer","Patel","Nair","Reddy","Singh","Desai",
+                       "Choudhury","Menon","Joshi","Rahman","Pillai","Gupta","Malhotra","Bose","Rao","Hussain",
+                       "Agarwal","Bhatt","Malik","Chauhan","Saxena","Ali","Mehta","Kulkarni","Trivedi","Hegde"];
+  const locations  = ["Aurangabad, MH","Patna, BR","Bengaluru, KA","Pune, MH","Hyderabad, TS",
+                       "Gurugram, HR","Indore, MP","Jaipur, RJ","Kochi, KL","Ahmedabad, GJ"];
   const leadStatuses = [LeadStatus.HOT, LeadStatus.WARM, LeadStatus.COLD];
 
   const daysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return d; };
@@ -147,7 +175,7 @@ async function main() {
         firstName: firstNames[i],
         lastName: lastNames[i],
         email: `${firstNames[i].toLowerCase()}.${lastNames[i].toLowerCase()}@${company.website}`,
-        phone: `+1-555-${String(1000 + i).slice(-4)}`,
+        phone: `+91-${String(90000_00000 + i * 11111).slice(0, 10)}`,
         companyId: company.id,
         location: locations[i % locations.length],
         leadStatus: leadStatuses[i % leadStatuses.length],
@@ -190,7 +218,15 @@ async function main() {
 
   const dealTitles = ["Enterprise License", "Annual Subscription", "Platform Deal", "Module Upgrade",
                        "Integration Package", "Premium Tier", "Expansion Plan", "Full Suite", "Add-on Pack", "Renewal"];
-  const stages = [DealStage.QUALIFICATION, DealStage.PROPOSAL, DealStage.NEGOTIATION, DealStage.CLOSED_WON];
+  // 🚩 OPEN stages only. CLOSED_WON is assigned solely to WON deals below.
+  // The old array included CLOSED_WON, so an OPEN or LOST deal could be dealt
+  // that stage at random — a combination the app itself cannot produce, since
+  // the stage endpoint sets status=WON whenever a deal reaches Closed Won
+  // (src/app/api/deals/[id]/stage/route.ts). It seeded 10 such deals worth
+  // ₹3.07Cr, which made the Deals pipeline report ₹11.75Cr of Closed Won
+  // against the Dashboard's ₹9.3Cr of won revenue. Two pages, two different
+  // answers to "how much have we won" — from seed data alone.
+  const openStages = [DealStage.QUALIFICATION, DealStage.PROPOSAL, DealStage.NEGOTIATION];
   const statusCycle = [DealStatus.WON, DealStatus.WON, DealStatus.OPEN, DealStatus.OPEN, DealStatus.LOST];
 
   const dealsData: any[] = [];
@@ -198,7 +234,10 @@ async function main() {
     const dealsForThisContact = 1 + (i % 3); // 1–3 deals per contact
     for (let j = 0; j < dealsForThisContact; j++) {
       const status = statusCycle[(i + j) % statusCycle.length];
-      const stage = status === DealStatus.WON ? DealStage.CLOSED_WON : stages[(i + j) % stages.length];
+      const stage =
+        status === DealStatus.WON
+          ? DealStage.CLOSED_WON
+          : openStages[(i + j) % openStages.length];
       const createdAt = monthsAgo((i + j) % 6);
 
       // closedAt only ever gets set for WON deals — matches the live app's
@@ -215,7 +254,12 @@ async function main() {
         title: `${dealTitles[(i + j) % dealTitles.length]}`,
         contactId: contact.id,
         ownerId: contact.ownerId,
-        amount: 8000 + ((i * 7 + j * 13) % 40) * 2500, // varied amounts, $8k–$100k+
+        // ₹60K – ₹63L, with every 11th deal tripled into crore territory.
+        // Deliberately spans all three tiers the rupee formatter switches
+        // between (K / L / Cr) so a wrong threshold shows up on screen
+        // instead of hiding until a real deal crosses it.
+        amount:
+          (60_000 + ((i * 7 + j * 13) % 40) * 160_000) * ((i + j) % 11 === 0 ? 3 : 1),
         stage,
         status,
         createdAt,
@@ -230,7 +274,7 @@ async function main() {
 
   // ── Activities — sample of 15, referencing real deals/contacts ─────────────
   const activityTemplates = [
-    (d: any, u: any) => ({ userId: u.id, activityType: ActivityType.DEAL_CREATED, entityType: EntityType.DEAL, entityId: d.id, message: `New deal created: ${d.title} — $${Number(d.amount).toLocaleString()}` }),
+    (d: any, u: any) => ({ userId: u.id, activityType: ActivityType.DEAL_CREATED, entityType: EntityType.DEAL, entityId: d.id, message: `New deal created: ${d.title} — ${formatINRExact(Number(d.amount))}` }),
     (d: any, u: any) => ({ userId: u.id, activityType: ActivityType.DEAL_UPDATED, entityType: EntityType.DEAL, entityId: d.id, message: `${d.title} updated to ${d.stage.replace("_", " ")}` }),
     (d: any, u: any) => ({ userId: u.id, activityType: ActivityType.MEETING_SCHEDULED, entityType: EntityType.DEAL, entityId: d.id, message: `Meeting scheduled to discuss ${d.title}` }),
   ];
@@ -258,11 +302,11 @@ async function main() {
   // createdBy is now a required field (Tasks & Activities module) — every
   // task needs to know who created it, not just who it's assigned to.
   await Promise.all([
-    prisma.task.create({ data: { title: "Follow up with TechCorp on renewal", assignedTo: rep1.id, createdBy: rep1.id, dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) } }),
-    prisma.task.create({ data: { title: "Prepare proposal for FinTech IO Expansion", assignedTo: rep2.id, createdBy: manager.id, dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) } }),
-    prisma.task.create({ data: { title: "Schedule demo for HealthPlus Full Suite", assignedTo: rep3.id, createdBy: manager.id, dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } }),
-    prisma.task.create({ data: { title: "Send contract to Skyline Media", assignedTo: rep1.id, createdBy: rep1.id, dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) } }),
-    prisma.task.create({ data: { title: "Check in with Northwind Logistics", assignedTo: rep2.id, createdBy: rep2.id, dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000) } }),
+    prisma.task.create({ data: { title: "Follow up with Sharma Technologies on renewal", assignedTo: rep1.id, createdBy: rep1.id, dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) } }),
+    prisma.task.create({ data: { title: "Prepare proposal for Paytrail Fintech expansion", assignedTo: rep2.id, createdBy: manager.id, dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) } }),
+    prisma.task.create({ data: { title: "Schedule demo for Arogya Healthcare full suite", assignedTo: rep3.id, createdBy: manager.id, dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } }),
+    prisma.task.create({ data: { title: "Send contract to Prabhat Media", assignedTo: rep1.id, createdBy: rep1.id, dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) } }),
+    prisma.task.create({ data: { title: "Check in with Sanchar Logistics", assignedTo: rep2.id, createdBy: rep2.id, dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000) } }),
   ]);
 
   // One sample MEETING-type task, with its TaskActivity detail row and a
@@ -270,7 +314,7 @@ async function main() {
   // full meeting flow (type, TaskActivity, TaskAttendee) end to end.
   const meetingTask = await prisma.task.create({
     data: {
-      title: "Kickoff call with FinTech IO",
+      title: "Kickoff call with Paytrail Fintech",
       assignedTo: rep2.id,
       createdBy: manager.id,
       type: "MEETING",
@@ -290,7 +334,7 @@ async function main() {
 
   await prisma.taskAttendee.createMany({
     data: [
-      { taskId: meetingTask.id, contactId: contacts[2].id }, // Michael Brown, FinTech IO
+      { taskId: meetingTask.id, contactId: contacts[2].id }, // the third seeded contact, at Paytrail Fintech
     ],
   });
 
@@ -462,6 +506,9 @@ async function main() {
   console.log(`   Contacts:   ${contacts.length}`);
   console.log(`   Deals:      ${deals.length}`);
   console.log(`   Follow-Ups: ${followUps.length}`);
+  console.log(`   Tasks:      6 (incl. 1 meeting)`);
+  console.log(`   History:    ${historyData.length} lead timeline entries`);
+  console.log(`   Currency:   INR (₹) — see src/lib/currency.ts`);
   console.log("\n📧 Login credentials:");
   console.log("   Admin:    admin@crm.com  / password123");
   console.log("   Manager:  usman@crm.com  / password123");

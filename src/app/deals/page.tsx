@@ -9,17 +9,12 @@ import DatePicker from "@/components/ui/DatePicker";
 import Dialog from "@/components/ui/Dialog";
 import LoadingState from "@/components/ui/LoadingState";
 import { useToast } from "@/components/ui/Toast";
+import { formatINR } from "@/lib/currency";
 import { DealsPipelineResponse, DealCardResponse, DealStageSummary } from "@/types/deals";
 
 interface ContactOption { id: string; name: string; }
 
 const STAGES = ["Qualification", "Proposal", "Negotiation", "Closed Won"];
-
-function formatCurrency(n: number): string {
-  if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}K`;
-  return `$${n}`;
-}
 
 function formatDate(iso: string | null): string {
   if (!iso) return "No date";
@@ -383,7 +378,7 @@ export default function DealsPage() {
                         </span>
                       </div>
                       <div className="text-sm font-semibold mt-1" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
-                        {formatCurrency(stageSummary?.totalAmount ?? 0)}
+                        {formatINR(stageSummary?.totalAmount ?? 0)}
                       </div>
                     </div>
 
@@ -416,7 +411,7 @@ export default function DealsPage() {
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-semibold tabular-nums" style={{ color: "var(--text)" }}>
-                              {formatCurrency(deal.amount)}
+                              {formatINR(deal.amount)}
                             </span>
                             <span className="text-xs" style={{ color: "var(--text-muted)" }}>
                               {formatDate(deal.expectedCloseDate)}

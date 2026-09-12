@@ -218,6 +218,39 @@ now lives in `src/lib/leads.server.ts`.
 
 ---
 
+## Money is in rupees
+
+All amounts are **Indian Rupees**, formatted by one helper: `src/lib/currency.ts`.
+
+Indian numbering, not Western. Money is grouped and shortened in **lakh**
+(1,00,000) and **crore** (1,00,00,000):
+
+| Amount | Compact — `formatINR` | Exact — `formatINRExact` |
+|---|---|---|
+| 45,000 | ₹45K | ₹45,000 |
+| 4,50,000 | ₹4.5L | ₹4,50,000 |
+| 45,00,000 | ₹45L | ₹45,00,000 |
+| 2,40,00,000 | ₹2.4Cr | ₹2,40,00,000 |
+
+Use the compact one for tiles, chart axes and table cells; the exact one for
+tooltips and detail rows, where rounding ₹12,34,567 down to "₹12L" hides the
+number somebody opened the tooltip to read.
+
+**Why one file.** This replaced **four** copy-pasted `formatCurrency` helpers
+(Dashboard, Deals, Contacts, Analytics) plus two more inside the chart
+components. They had already drifted apart — one rendered "₹45k", the others
+"₹45K" — which is the kind of small inconsistency that makes a product feel
+unfinished.
+
+**The open question.** Deal amounts are stored as `Decimal(12,2)` with **no
+currency column**, so "rupees" is an app-wide assumption rather than a fact
+about each row. That is fine for one market. Selling into a second currency
+later means a migration plus going back through every historical deal to decide
+what currency it was in — which is why adding the column now is much cheaper
+than adding it later.
+
+---
+
 ## Rules that hold across all three modules
 
 **Owner scoping.** `resolveOwnerScope` in `src/lib/scope.ts` decides whose rows
@@ -252,16 +285,51 @@ timeline identically.
 ## Running it
 
 ```bash
-npx prisma migrate deploy   # applies both new migrations
-npm run db:seed             # 30 leads with history, 60 follow-ups
+npx prisma migrate deploy   # applies the migration files
+npm run db:seed             # sample data
 npm run dev
 ```
 
-Two migrations were added:
+Two migrations were added by these modules:
 
 - `20260911103000_add_follow_up_cancelled` — adds the `CANCELLED` follow-up
-  status (Module 2)
+  status (Module 02)
 - `20260912120000_add_lead_desk_and_history` — adds sub-status, lead score,
-  source name and the `lead_history` table (Module 3)
+  source name and the `lead_history` table (Module 03)
 
 Both are additive and safe on existing data.
+
+### The seed is safe to re-run
+
+It used to only **upsert** users and contacts while **creating** deals,
+activities, follow-ups and history — so every re-run stacked another full set of
+children on top of the last. A database seeded three times reported three times
+the pipeline, and nothing looked obviously wrong, because each individual number
+was plausible.
+
+It now clears what it created before inserting again, in foreign-key-safe order.
+Run it ten times and you get the same result.
+
+⚠️ Because it deletes, **never point it at a database with real customer data.**
+Users are upserted rather than deleted, so logins keep working.
+
+The sample data is Indian to match the rupee formatting: Indian names, cities
+and `+91` phone numbers, with deals spread from ₹60K to about ₹1.8Cr so that all
+three formatting tiers (K / L / Cr) actually appear on screen.
+
+### One thing the seed no longer does
+
+It used to create deals with stage "Closed Won" but a status of Open or Lost —
+a combination the app itself cannot produce. That made the Deals page and the
+Dashboard report different totals for how much had been won. See
+[LIFECYCLE-AUDIT.md](LIFECYCLE-AUDIT.md) for the details.
+
+---
+
+## Known problems
+
+This document explains how the modules are meant to work.
+**[LIFECYCLE-AUDIT.md](LIFECYCLE-AUDIT.md)** lists what is actually broken —
+read it before building on this. The most urgent items are the placeholder
+`JWT_SECRET`, the unfiltered `/api/dashboard`, and managers seeing different
+numbers on different pages.

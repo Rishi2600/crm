@@ -9,21 +9,23 @@ import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 import LoadingState from "@/components/ui/LoadingState";
 import { AnalyticsDashboardResponse } from "@/types/analytics";
+import { formatINR, formatINRExact } from "@/lib/currency";
 
-function formatCurrency(n: number): string {
-  if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}K`;
-  return `$${n}`;
-}
-
-function Tip({ active, payload, label }: any) {
+// One tooltip for both charts below, but only one of them plots money —
+// `money` switches the value between rupees and a plain count so the deals/
+// contacts bars don't render "₹12" for twelve deals.
+function Tip({ active, payload, label, money = false }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="px-3 py-2 rounded-lg text-xs"
       style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text)" }}>
       <div style={{ color: "var(--text-muted)" }} className="mb-1">{label}</div>
       {payload.map((p: any) => (
-        <div key={p.dataKey}>{p.name}: <span className="font-semibold">{p.value.toLocaleString()}</span></div>
+        <div key={p.dataKey}>
+          {p.name}: <span className="font-semibold">
+            {money ? formatINRExact(p.value) : p.value.toLocaleString("en-IN")}
+          </span>
+        </div>
       ))}
     </div>
   );
@@ -123,7 +125,7 @@ export default function AnalyticsPage() {
             <div className="p-5 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
               <div className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Avg Deal Size</div>
               <div className="text-2xl font-semibold mt-2" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
-                {formatCurrency(data.kpis.averageDealSize)}
+                {formatINR(data.kpis.averageDealSize)}
               </div>
             </div>
             <div className="p-5 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
@@ -155,8 +157,8 @@ export default function AnalyticsPage() {
                 <LineChart data={data.revenueTrend}>
                   <CartesianGrid strokeDasharray="2 4" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={(v) => formatCurrency(v)} tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} width={44} />
-                  <Tooltip content={<Tip />} />
+                  <YAxis tickFormatter={(v) => formatINR(v)} tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} width={44} />
+                  <Tooltip content={<Tip money />} />
                   <Line type="monotone" dataKey="amount" name="Revenue" stroke="var(--text)" strokeWidth={1.5} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
@@ -223,7 +225,7 @@ export default function AnalyticsPage() {
                     </div>
                     <div className="flex items-center gap-4 text-xs">
                       <span style={{ color: "var(--text-muted)" }}>{p.closedDeals} deals</span>
-                      <span className="font-semibold tabular-nums" style={{ color: "var(--text)" }}>{formatCurrency(p.revenue)}</span>
+                      <span className="font-semibold tabular-nums" style={{ color: "var(--text)" }}>{formatINR(p.revenue)}</span>
                     </div>
                   </div>
                 ))}

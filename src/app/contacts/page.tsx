@@ -10,6 +10,7 @@ import DatePicker from "@/components/ui/DatePicker";
 import Dialog from "@/components/ui/Dialog";
 import LoadingState from "@/components/ui/LoadingState";
 import { useToast } from "@/components/ui/Toast";
+import { formatINR } from "@/lib/currency";
 import { ContactsApiResponse, ContactResponse } from "@/types/contacts";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -17,12 +18,6 @@ const STATUS_COLOR: Record<string, string> = {
   Warm: "#d97706",
   Cold: "var(--text-muted)",
 };
-
-function formatCurrency(n: number): string {
-  if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}K`;
-  return `$${n}`;
-}
 
 export default function ContactsPage() {
   const router = useRouter();
@@ -356,7 +351,7 @@ export default function ContactsPage() {
                   {c.location ?? "—"}
                 </div>
                 <div className="col-span-2 text-right text-sm font-medium tabular-nums" style={{ color: "var(--text)" }}>
-                  {formatCurrency(c.dealValue)}
+                  {formatINR(c.dealValue)}
                 </div>
                 <div className="col-span-2">
                   <span

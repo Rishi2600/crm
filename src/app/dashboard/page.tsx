@@ -8,17 +8,12 @@ import MetricCard from "@/components/cards/MetricCard";
 import RevenueChart from "@/components/charts/RevenueChart";
 import PipelineChart from "@/components/charts/PipelineChart";
 import ActivityFeed from "@/components/cards/ActivityFeed";
+import { formatINR } from "@/lib/currency";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import LoadingState from "@/components/ui/LoadingState";
 import InsightsTabs from "@/components/insights/InsightsTabs";
 import InsightsPanel from "@/components/insights/InsightsPanel";
-
-function formatCurrency(n: number): string {
-  if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
-  if (n >= 1000)    return `$${(n / 1000).toFixed(1)}K`;
-  return `$${n}`;
-}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -130,7 +125,7 @@ export default function DashboardPage() {
                   <div className="grid grid-cols-4 gap-4">
                     <MetricCard
                       title="Total Revenue"
-                      value={formatCurrency(data.revenue.amount)}
+                      value={formatINR(data.revenue.amount)}
                       trend={data.revenue.growth}
                       subtitle="vs last month"
                     />

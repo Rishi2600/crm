@@ -1,6 +1,7 @@
 "use client";
 
 import { PipelineStage } from "@/types/dashboard";
+import { formatINRExact } from "@/lib/currency";
 
 export default function PipelineChart({ data }: { data: PipelineStage[] }) {
   const total = data.reduce((s, d) => s + d.count, 0);
@@ -39,7 +40,7 @@ export default function PipelineChart({ data }: { data: PipelineStage[] }) {
         <div className="mt-5 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
           <div className="text-xs" style={{ color: "var(--text-muted)" }}>Total pipeline value</div>
           <div className="text-lg font-semibold mt-0.5" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
-            ${totalAmount.toLocaleString()}
+            {formatINRExact(totalAmount)}
           </div>
         </div>
       )}

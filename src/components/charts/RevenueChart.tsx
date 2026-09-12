@@ -2,11 +2,7 @@
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { GraphPoint } from "@/types/dashboard";
-
-function formatY(v: number) {
-  if (v >= 1000) return `$${(v / 1000).toFixed(0)}k`;
-  return `$${v}`;
-}
+import { formatINR, formatINRExact } from "@/lib/currency";
 
 function Tip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -14,7 +10,7 @@ function Tip({ active, payload, label }: any) {
     <div className="px-3 py-2 rounded-lg text-xs"
       style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text)" }}>
       <div style={{ color: "var(--text-muted)" }} className="mb-0.5">{label}</div>
-      <div className="font-semibold">${payload[0].value.toLocaleString()}</div>
+      <div className="font-semibold">{formatINRExact(payload[0].value)}</div>
     </div>
   );
 }
@@ -30,7 +26,7 @@ export default function RevenueChart({ data }: { data: GraphPoint[] }) {
         <LineChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="2 4" stroke="var(--border)" vertical={false} />
           <XAxis dataKey="month" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
-          <YAxis tickFormatter={formatY} tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} width={44} />
+          <YAxis tickFormatter={formatINR} tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} width={44} />
           <Tooltip content={<Tip />} cursor={{ stroke: "var(--border)", strokeWidth: 1 }} />
           <Line
             type="monotone"
