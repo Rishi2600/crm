@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { resolveOwnerScope, isInScope } from "@/lib/scope";
 import {
   STATUS_LABEL,
   SUB_STATUS_LABEL,
@@ -84,9 +85,14 @@ export async function PATCH(
     // 🚩 Ownership — same rule as the deal-stage, task-status and follow-up
     // endpoints. Without it any authenticated user could reclassify someone
     // else's leads by guessing ids.
-    const isOwner = existing.ownerId === userId;
-    const isElevated = userRole === "ADMIN" || userRole === "MANAGER";
-    if (!isOwner && !isElevated) {
+    // 🚩 Scoped to the caller's OWN TEAM, not merely "are you a manager".
+    // This used to be `isOwner || ADMIN || MANAGER`, which never looked at
+    // WHOSE record it was — so a manager could edit leads belonging to a
+    // different manager's team, including ones the read endpoints correctly
+    // refused to show them. isInScope asks the same question the list
+    // endpoints ask, so read access and write access can no longer disagree.
+    const ownerIds = await resolveOwnerScope(userId, userRole);
+    if (!isInScope(ownerIds, existing.ownerId)) {
       return NextResponse.json<ApiError>(
         { error: "Forbidden", message: "You are not authorized to update this lead" },
         { status: 403 }

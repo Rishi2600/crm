@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { resolveOwnerScope, ownerWhere } from "@/lib/scope";
 import {
   AnalyticsDashboardResponse,
   AnalyticsKPIs,
@@ -42,17 +43,12 @@ export async function GET(request: NextRequest) {
     // endpoint. ADMIN sees everything, MANAGER sees self + direct reports
     // (same one-level depth decided in the Tasks module), SALES_REP sees
     // only their own numbers. ──────────────────────────────────────────────
-    let ownerIds: string[] | undefined;
-    if (userRole === "ADMIN") {
-      ownerIds = undefined; // no filter — everyone
-    } else if (userRole === "MANAGER") {
-      const reports = await prisma.user.findMany({ where: { managerId: userId }, select: { id: true } });
-      ownerIds = [userId, ...reports.map((r) => r.id)];
-    } else {
-      ownerIds = [userId];
-    }
-    const ownerFilter = ownerIds ? { ownerId: { in: ownerIds } } : {};
-    const contactOwnerFilter = ownerIds ? { ownerId: { in: ownerIds } } : {};
+    // Behaviour unchanged — this was an inlined copy of the same rule, now
+    // routed through the single definition in @/lib/scope so there is one
+    // place to change if "what a manager sees" is ever revisited.
+    const ownerIds = await resolveOwnerScope(userId, userRole);
+    const ownerFilter = ownerWhere(ownerIds);
+    const contactOwnerFilter = ownerWhere(ownerIds);
 
     // ── Optional date-range filter ──────────────────────────────────────────
     // Applied to createdAt for "volume" metrics (growth, active leads, win

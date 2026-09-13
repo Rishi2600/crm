@@ -220,9 +220,14 @@ export async function PATCH(
     // 🚩 Ownership — the rule reused from the deal-stage, task-status and
     // follow-up endpoints: the owner can edit their own lead, ADMIN and
     // MANAGER can edit within theirs, nobody else can touch it.
-    const isOwner = existing.ownerId === userId;
-    const isElevated = userRole === "ADMIN" || userRole === "MANAGER";
-    if (!isOwner && !isElevated) {
+    // 🚩 Scoped to the caller's OWN TEAM, not merely "are you a manager".
+    // This used to be `isOwner || ADMIN || MANAGER`, which never looked at
+    // WHOSE record it was — so a manager could edit leads belonging to a
+    // different manager's team, including ones the read endpoints correctly
+    // refused to show them. isInScope asks the same question the list
+    // endpoints ask, so read access and write access can no longer disagree.
+    const ownerIds = await resolveOwnerScope(userId, userRole);
+    if (!isInScope(ownerIds, existing.ownerId)) {
       return NextResponse.json<ApiError>(
         { error: "Forbidden", message: "You are not authorized to edit this lead" },
         { status: 403 }

@@ -116,15 +116,20 @@ npm run db:migrate   # create + apply a new migration during development
 - **[docs/LIFECYCLE-AUDIT.md](docs/LIFECYCLE-AUDIT.md)** — a walk through the
   whole product lifecycle, what was verified working, and the known problems
   that are still open.
+- **[docs/RBAC.md](docs/RBAC.md)** — who can see and do what, and why.
 
 ## Known gaps worth reading before you build on this
 
 The audit document has the full list with file references. The short version:
 
 1. Replace `JWT_SECRET` before deploying.
-2. `/api/dashboard` has no permission filtering — every user sees company-wide
-   revenue.
-3. A manager sees different totals on the Leads page than on the Contacts page.
+2. `/api/dashboard` has no permission filtering — every user, including a
+   junior rep, sees company-wide revenue. This is now the **only** endpoint
+   left without scoping.
+3. A user's role is read from their login token and never re-checked, so
+   deactivating or demoting someone takes up to 7 days to take effect.
 4. Deals cannot be marked lost, so the win rate will drift to 100%.
 5. Contacts and deals cannot be edited or deleted, and there is no data export.
 6. There are no automated tests and no ESLint config.
+
+Permissions are documented in **[docs/RBAC.md](docs/RBAC.md)**.

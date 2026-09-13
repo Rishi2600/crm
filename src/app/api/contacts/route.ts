@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { resolveOwnerScope, ownerWhere } from "@/lib/scope";
 import { ContactsApiResponse, ContactResponse, CreateContactPayload, CreateContactResponse } from "@/types/contacts";
 import { ApiError } from "@/types/dashboard";
 
@@ -46,8 +47,14 @@ export async function GET(request: NextRequest) {
 
     // ── Authorization scope ──────────────────────────────────────────────────
     // ADMIN / MANAGER see all contacts. SALES_REP sees only contacts they own.
-    const ownerFilter =
-      userRole === "ADMIN" || userRole === "MANAGER" ? {} : { ownerId: userId };
+    // 🚩 Was: ADMIN *and* MANAGER both saw the entire company here, while
+    // Leads, Follow-ups, Tasks and Analytics limited a manager to their own
+    // team. Same user, same question, two different answers depending on the
+    // page — and this endpoint was also the one handing managers the record
+    // IDs of teams they had no access to. Now routed through the one shared
+    // rule in @/lib/scope.
+    const ownerIds = await resolveOwnerScope(userId, userRole);
+    const ownerFilter = ownerWhere(ownerIds);
 
     // ── Search filter — case-insensitive, partial match across 4 fields ────
     // Multi-word searches ("John Smith") need special handling — firstName

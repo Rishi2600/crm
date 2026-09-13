@@ -74,6 +74,23 @@ async function main() {
     create: { name: "Hamza Iqbal", email: "hamza@crm.com", password: hashedPassword, role: UserRole.SALES_REP },
   });
 
+  // A SECOND team — Priya manages Rohit. Without a second manager there is no
+  // way to test that one manager cannot reach another manager's records: every
+  // record in the database belonged either to Usman's team or to the admin, so
+  // "cross-team" had to be faked using the admin's rows. Team isolation is a
+  // real rule, and a seed that cannot exercise it lets regressions through.
+  const manager2 = await prisma.user.upsert({
+    where: { email: "priya@crm.com" },
+    update: {},
+    create: { name: "Priya Nair", email: "priya@crm.com", password: hashedPassword, role: UserRole.MANAGER },
+  });
+
+  const rep4 = await prisma.user.upsert({
+    where: { email: "rohit@crm.com" },
+    update: {},
+    create: { name: "Rohit Menon", email: "rohit@crm.com", password: hashedPassword, role: UserRole.SALES_REP },
+  });
+
   // Manager who owns the reporting hierarchy for rep1/rep2/rep3.
   // Tasks module's /api/users/assignable and hierarchy checks depend on
   // managerId being populated — without this, every "assign to my team"
@@ -88,9 +105,14 @@ async function main() {
     prisma.user.update({ where: { id: rep1.id }, data: { managerId: manager.id } }),
     prisma.user.update({ where: { id: rep2.id }, data: { managerId: manager.id } }),
     prisma.user.update({ where: { id: rep3.id }, data: { managerId: manager.id } }),
+    // Rohit reports to Priya, NOT to Usman — this is the boundary the
+    // team-scoping rules are supposed to enforce.
+    prisma.user.update({ where: { id: rep4.id }, data: { managerId: manager2.id } }),
   ]);
 
-  const owners = [admin, rep1, rep2, rep3];
+  // rep4 is in the rotation so Priya's team actually owns records for Usman to
+  // be refused access to.
+  const owners = [admin, rep1, rep2, rep3, rep4];
   console.log("✅ Users created");
 
   // ── Companies (10) ───────────────────────────────────────────────────────────
@@ -515,6 +537,8 @@ async function main() {
   console.log("   Sales:    ali@crm.com    / password123");
   console.log("   Sales:    fatima@crm.com / password123");
   console.log("   Sales:    hamza@crm.com  / password123");
+  console.log("   Manager2: priya@crm.com  / password123   (separate team)");
+  console.log("   Sales:    rohit@crm.com  / password123   (reports to Priya)");
 }
 
 main()

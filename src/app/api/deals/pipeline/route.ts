@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { resolveOwnerScope, ownerWhere } from "@/lib/scope";
 import { DealsPipelineResponse, DealCardResponse, DealStageSummary } from "@/types/deals";
 import { ApiError } from "@/types/dashboard";
 
@@ -47,8 +48,14 @@ export async function GET(request: NextRequest) {
     // 🚩 Same ownership rule as Contacts, flagged here since it's being reused
     // rather than independently decided for Deals — worth revisiting per-module
     // if Deals ever needs different sharing rules (e.g. team-visible deals).
-    const ownerFilter =
-      userRole === "ADMIN" || userRole === "MANAGER" ? {} : { ownerId: userId };
+    // 🚩 Was: ADMIN *and* MANAGER both saw the entire company here, while
+    // Leads, Follow-ups, Tasks and Analytics limited a manager to their own
+    // team. Same user, same question, two different answers depending on the
+    // page — and this endpoint was also the one handing managers the record
+    // IDs of teams they had no access to. Now routed through the one shared
+    // rule in @/lib/scope.
+    const ownerIds = await resolveOwnerScope(userId, userRole);
+    const ownerFilter = ownerWhere(ownerIds);
 
     // ── Search filter — case-insensitive, partial match across 3 fields ────
     // `contact` is a required to-one relation on Deal (direct nesting works),

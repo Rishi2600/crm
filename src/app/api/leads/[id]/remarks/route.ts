@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { resolveOwnerScope, isInScope } from "@/lib/scope";
 import { shapeHistory } from "@/lib/leads";
 import { AddRemarkPayload } from "@/types/leads";
 import { ApiError } from "@/types/dashboard";
@@ -62,9 +63,14 @@ export async function POST(
     // 🚩 Same ownership rule as every other lead write — a remark is part of
     // the permanent record, so who may add one is not a looser question than
     // who may edit the lead.
-    const isOwner = lead.ownerId === userId;
-    const isElevated = userRole === "ADMIN" || userRole === "MANAGER";
-    if (!isOwner && !isElevated) {
+    // 🚩 Scoped to the caller's OWN TEAM, not merely "are you a manager".
+    // This used to be `isOwner || ADMIN || MANAGER`, which never looked at
+    // WHOSE record it was — so a manager could edit leads belonging to a
+    // different manager's team, including ones the read endpoints correctly
+    // refused to show them. isInScope asks the same question the list
+    // endpoints ask, so read access and write access can no longer disagree.
+    const ownerIds = await resolveOwnerScope(userId, userRole);
+    if (!isInScope(ownerIds, lead.ownerId)) {
       return NextResponse.json<ApiError>(
         { error: "Forbidden", message: "You are not authorized to add a remark to this lead" },
         { status: 403 }

@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { resolveOwnerScope, isInScope } from "@/lib/scope";
 import { StageUpdatePayload, StageUpdateResponse, DealCardResponse } from "@/types/deals";
 import { ApiError } from "@/types/dashboard";
 
@@ -82,10 +83,11 @@ export async function PATCH(
     // just by guessing/incrementing IDs. Flagged here since the rule is
     // borrowed rather than independently designed for Deals — revisit if
     // Deals ever needs different sharing semantics (e.g. team-visible deals).
-    const isOwner = existingDeal.ownerId === userId;
-    const isElevated = userRole === "ADMIN" || userRole === "MANAGER";
-
-    if (!isOwner && !isElevated) {
+    // 🚩 Scoped to the caller's OWN TEAM — see the note on the lead routes.
+    // "Any manager" is not the same question as "a manager of this deal's
+    // owner", and only the second one is a permission.
+    const ownerIds = await resolveOwnerScope(userId, userRole);
+    if (!isInScope(ownerIds, existingDeal.ownerId)) {
       return NextResponse.json<ApiError>(
         { error: "Forbidden", message: "You are not authorized to update this deal" },
         { status: 403 }

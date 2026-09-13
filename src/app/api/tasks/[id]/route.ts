@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { resolveOwnerScope, isInScope } from "@/lib/scope";
 import { ApiError } from "@/types/dashboard";
 
 export async function DELETE(
@@ -31,10 +32,16 @@ export async function DELETE(
 
     // Same ownership rule as the status-update and attendees endpoints for
     // this task — assignee, creator, or an elevated role (Admin/Manager).
-    const isAssignee = existingTask.assignedTo === userId;
-    const isCreator = existingTask.createdBy === userId;
-    const isElevated = userRole === "ADMIN" || userRole === "MANAGER";
-    if (!isAssignee && !isCreator && !isElevated) {
+    // 🚩 Scoped to the caller's own team. A task has no `ownerId` — it is
+    // "owned" by whoever it is assigned to OR whoever created it, so either
+    // side being in scope grants access. Previously any manager could act on
+    // any task in the company, including teams whose tasks the list endpoint
+    // refused to show them.
+    const ownerIds = await resolveOwnerScope(userId, userRole);
+    const inScope =
+      isInScope(ownerIds, existingTask.assignedTo) ||
+      isInScope(ownerIds, existingTask.createdBy);
+    if (!inScope) {
       return NextResponse.json<ApiError>(
         { error: "Forbidden", message: "You are not authorized to delete this task" },
         { status: 403 }

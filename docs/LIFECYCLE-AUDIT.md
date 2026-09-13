@@ -92,23 +92,24 @@ answers to the same question stops being trusted.
 
 ## What I found broken
 
-### 1. A manager sees two different lead counts
+### 1. A manager sees two different lead counts — **FIXED**
 
-Logged in as the manager, on the **same data**:
+Logged in as the manager, on the **same data**, the counts used to disagree:
+Leads said 22, Contacts said 31, Dashboard Insights said 22 — even though
+Leads and Contacts are the *same database table*.
 
-| Page | Count |
-|---|---|
-| Leads | **22** |
-| Contacts | **31** |
-| Dashboard Insights | **22** |
+`/api/contacts` and `/api/deals/pipeline` let a manager see the whole company
+while every newer route limited them to their own team. Both now go through
+`src/lib/scope.ts`, so every page gives the same answer:
 
-Leads and Contacts are the *same database table*. The difference is that
-`/api/contacts` and `/api/deals/pipeline` let a manager see the whole company,
-while every newer route limits them to their own team.
+| Role | Leads | Contacts | Insights | |
+|---|---|---|---|---|
+| Admin | 30 | 30 | 30 | ✅ |
+| Manager (Usman) | 18 | 18 | 18 | ✅ |
+| Manager (Priya) | 6 | 6 | 6 | ✅ |
+| Rep | 6 | 6 | 6 | ✅ |
 
-Nothing is crashing — the two sides simply disagree about what a manager is
-allowed to see. Somebody has to decide which answer is right, and then all the
-routes should use `src/lib/scope.ts`.
+See **[RBAC.md](RBAC.md)** for the full change.
 
 ### 2. Everyone sees company-wide revenue on the dashboard
 

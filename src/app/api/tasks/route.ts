@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { resolveOwnerScope } from "@/lib/scope";
 import {
   TasksApiResponse,
   TaskResponse,
@@ -69,16 +70,14 @@ export async function GET(request: NextRequest) {
     // assumption, not explicitly specified for Tasks in the story.
     // ADMIN: sees everything. MANAGER: sees own + direct reports' tasks.
     // SALES_REP: sees only tasks they're assigned to or created.
-    let scopeFilter: any;
-    if (userRole === "ADMIN") {
-      scopeFilter = {};
-    } else if (userRole === "MANAGER") {
-      const reports = await prisma.user.findMany({ where: { managerId: userId }, select: { id: true } });
-      const scopedIds = [userId, ...reports.map((r) => r.id)];
-      scopeFilter = { OR: [{ assignedTo: { in: scopedIds } }, { createdBy: { in: scopedIds } }] };
-    } else {
-      scopeFilter = { OR: [{ assignedTo: userId }, { createdBy: userId }] };
-    }
+    // Behaviour unchanged — the same rule, now taken from @/lib/scope rather
+    // than reimplemented here. A task is reachable if EITHER the assignee or
+    // the creator is in scope; `undefined` from resolveOwnerScope means ADMIN,
+    // i.e. no filter at all.
+    const ownerIds = await resolveOwnerScope(userId, userRole);
+    const scopeFilter = ownerIds
+      ? { OR: [{ assignedTo: { in: ownerIds } }, { createdBy: { in: ownerIds } }] }
+      : {};
 
     // ── Status filter ────────────────────────────────────────────────────────
     let statusEnum: string | undefined;
@@ -106,7 +105,11 @@ export async function GET(request: NextRequest) {
     const where = {
       ...scopeFilter,
       ...searchFilter,
-      ...(statusEnum ? { status: statusEnum } : {}),
+      // `as any` on the enum value only. This used to be hidden by typing
+      // scopeFilter as `any`, which made the WHOLE where-clause untyped;
+      // narrowing the cast to the one string→enum conversion keeps the rest
+      // of the object type-checked, the way the Contacts and Leads routes do it.
+      ...(statusEnum ? { status: statusEnum as any } : {}),
     };
 
     const total = await prisma.task.count({ where });

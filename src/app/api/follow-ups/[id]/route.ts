@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { parseDateTime } from "@/lib/scope";
+import { parseDateTime, resolveOwnerScope, isInScope } from "@/lib/scope";
 import { UpdateFollowUpPayload } from "@/types/followups";
 import { ApiError } from "@/types/dashboard";
 
@@ -110,9 +110,14 @@ export async function PATCH(
     // 🚩 Ownership — same rule as the task status and deal stage endpoints.
     // Without it any authenticated user could close or cancel another agent's
     // follow-ups by guessing IDs.
-    const isOwner = existing.ownerId === userId;
-    const isElevated = userRole === "ADMIN" || userRole === "MANAGER";
-    if (!isOwner && !isElevated) {
+    // 🚩 Scoped to the caller's OWN TEAM, not merely "are you a manager".
+    // This used to be `isOwner || ADMIN || MANAGER`, which never looked at
+    // WHOSE record it was — so a manager could edit follow-ups belonging to a
+    // different manager's team, including ones the read endpoints correctly
+    // refused to show them. isInScope asks the same question the list
+    // endpoints ask, so read access and write access can no longer disagree.
+    const ownerIds = await resolveOwnerScope(userId, userRole);
+    if (!isInScope(ownerIds, existing.ownerId)) {
       return NextResponse.json<ApiError>(
         { error: "Forbidden", message: "You are not authorized to update this follow-up" },
         { status: 403 }
