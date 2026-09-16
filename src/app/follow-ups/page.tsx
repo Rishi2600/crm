@@ -9,6 +9,7 @@ import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 import Dialog from "@/components/ui/Dialog";
 import LoadingState from "@/components/ui/LoadingState";
+import RevealOnHover, { RevealLine } from "@/components/ui/RevealOnHover";
 import { useToast } from "@/components/ui/Toast";
 import {
   FollowUpsApiResponse,
@@ -397,17 +398,16 @@ export default function FollowUpsPage() {
             {!loading && !error && followUps.map((f, i) => (
               <div
                 key={f.id}
-                className="grid grid-cols-12 px-4 py-3 text-sm items-center"
+                className="group/row grid grid-cols-12 px-4 py-3 text-sm items-center"
                 style={{ borderBottom: i < followUps.length - 1 ? "1px solid var(--border)" : "none" }}
               >
-                <div className="col-span-3">
-                  <div style={{ color: "var(--text)" }}>{f.contactName}</div>
-                  <div className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>
-                    {f.company ?? "—"}{f.dealTitle ? ` · ${f.dealTitle}` : ""}
-                  </div>
-                  {f.notes && (
-                    <div className="text-xs mt-0.5 truncate" style={{ color: "var(--text-faint)" }}>{f.notes}</div>
-                  )}
+                <div className="col-span-3 min-w-0">
+                  <RevealOnHover primary={f.contactName}>
+                    <RevealLine>
+                      {f.company ?? "—"}{f.dealTitle ? ` · ${f.dealTitle}` : ""}
+                    </RevealLine>
+                    {f.notes && <RevealLine tone="faint">{f.notes}</RevealLine>}
+                  </RevealOnHover>
                 </div>
 
                 <div className="col-span-2 text-xs" style={{ color: "var(--text-muted)" }}>{f.agentName}</div>

@@ -8,6 +8,7 @@ import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 import Dialog from "@/components/ui/Dialog";
 import LoadingState from "@/components/ui/LoadingState";
+import RevealOnHover, { RevealLine } from "@/components/ui/RevealOnHover";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Trash2 } from "lucide-react";
@@ -350,14 +351,13 @@ export default function TasksPage() {
             {!loading && tasks.map((t, i) => (
               <div
                 key={t.id}
-                className="grid grid-cols-12 px-4 py-3 text-sm items-center"
+                className="group/row grid grid-cols-12 px-4 py-3 text-sm items-center"
                 style={{ borderBottom: i < tasks.length - 1 ? "1px solid var(--border)" : "none" }}
               >
-                <div className="col-span-4">
-                  <div style={{ color: "var(--text)" }}>{t.title}</div>
-                  {t.description && (
-                    <div className="text-xs mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>{t.description}</div>
-                  )}
+                <div className="col-span-4 min-w-0">
+                  <RevealOnHover primary={t.title}>
+                    {t.description ? <RevealLine>{t.description}</RevealLine> : null}
+                  </RevealOnHover>
                 </div>
                 <div className="col-span-2 text-xs" style={{ color: "var(--text-muted)" }}>{t.assignedTo}</div>
                 <div className="col-span-1 text-xs truncate" style={{ color: "var(--text-muted)" }}>{t.relatedDeal ?? "—"}</div>

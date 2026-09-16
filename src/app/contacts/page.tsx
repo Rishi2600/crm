@@ -9,6 +9,7 @@ import Select from "@/components/ui/Select";
 import DatePicker from "@/components/ui/DatePicker";
 import Dialog from "@/components/ui/Dialog";
 import LoadingState from "@/components/ui/LoadingState";
+import RevealOnHover, { RevealLine } from "@/components/ui/RevealOnHover";
 import { useToast } from "@/components/ui/Toast";
 import { formatINR } from "@/lib/currency";
 import { ContactsApiResponse, ContactResponse } from "@/types/contacts";
@@ -337,12 +338,13 @@ export default function ContactsPage() {
             {!loading && !error && contacts.map((c, i) => (
               <div
                 key={c.id}
-                className="grid grid-cols-12 px-4 py-3 text-sm items-center"
+                className="group/row grid grid-cols-12 px-4 py-3 text-sm items-center"
                 style={{ borderBottom: i < contacts.length - 1 ? "1px solid var(--border)" : "none" }}
               >
-                <div className="col-span-3">
-                  <div style={{ color: "var(--text)" }}>{c.name}</div>
-                  <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{c.email}</div>
+                <div className="col-span-3 min-w-0">
+                  <RevealOnHover primary={c.name}>
+                    <RevealLine>{c.email}</RevealLine>
+                  </RevealOnHover>
                 </div>
                 <div className="col-span-2 text-xs" style={{ color: "var(--text-muted)" }}>
                   {c.company ?? "—"}
