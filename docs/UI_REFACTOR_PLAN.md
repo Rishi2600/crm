@@ -501,7 +501,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
   `<PageHeader title>{controls}</PageHeader>`.
 - [ ] Top bar: sidebar toggle, separator, title slot, controls slot, search
   button.
-- [ ] `components/layout/CommandMenu.tsx`: navigation only, opened with
+- [x] `components/layout/CommandMenu.tsx`: navigation only, opened with
   Cmd/Ctrl+K, from the search button, or from the sidebar search entry.
 - [x] Refactor `ThemeToggle`'s logic into a hook that the user-menu item can
   call. The login and landing pages keep their standalone button.
