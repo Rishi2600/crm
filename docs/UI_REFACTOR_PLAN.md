@@ -484,7 +484,7 @@ first.
 Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
 `tooltip`, `input`, `skeleton`), `dropdown-menu`, `avatar`, and `command`.
 
-- [ ] `git mv` the dashboard, leads, contacts, deals, follow-ups, tasks and
+- [x] `git mv` the dashboard, leads, contacts, deals, follow-ups, tasks and
   analytics pages into `src/app/(app)/`. This is a pure move; the URLs stay the
   same.
 - [ ] `src/app/(app)/layout.tsx` + `components/layout/AppShell.tsx`:
