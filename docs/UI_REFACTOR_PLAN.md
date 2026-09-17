@@ -5,7 +5,21 @@ Branch `feat/shadcn-ui`. Scope is UI only: no changes to `src/app/api/**`,
 `src/lib/leads.server.ts`, or any business rule. Every page keeps its current
 API calls.
 
-Status: **awaiting owner approval.** Nothing below has been implemented yet.
+Status: **approved — implementing end to end.**
+
+**Owner decisions** (17 Sep 2026): go with every recommendation in §4, and run
+all phases in one pass without stopping between them.
+
+| # | Decision |
+|---|---|
+| Q1 | Funnel of deals that have reached each stage (running total, largest first); "Leads" shown separately |
+| Q2 | "+" buttons on Qualification, Proposal and Negotiation only |
+| Q3 | No recommendation was given, so the previous-period line is **left out**: it would add a request, and pages keep their current API calls |
+| Q4 | Keep today's fixed page sizes; add first/previous/next/last; Tasks footer shows a count only |
+| Q5 | ConfirmDialog on AlertDialog (no backdrop-click dismissal) |
+| Q6 | Keep click-to-dismiss on toasts |
+| Q7 | chart-1 #155dfc, chart-2 #2b7fff, chart-3 #8ec5ff, chart-4 #1447e6, chart-5 #193cb8 |
+| Q8 | Record the Closed Won create bug in §17 during Phase 11 |
 
 ---
 
@@ -333,16 +347,17 @@ returns.
   `set -a; . ./.env; set +a`, then `npx next build`, then restore
   `tsconfig.tsbuildinfo`.
 - Push after every commit.
-- Report at the end of each phase, and wait for "continue".
+- ~~Report at the end of each phase, and wait for "continue".~~ The owner asked
+  for one end-to-end pass; the build check still runs at every phase end.
 
 ### Phase 1: Foundation
 
-- [ ] `components.json`: new-york, `rsc: true`, `tsx: true`, Tailwind config
+- [x] `components.json`: new-york, `rsc: true`, `tsx: true`, Tailwind config
   `tailwind.config.js`, CSS `src/app/globals.css`, base colour neutral, CSS
   variables on, no prefix; aliases `@/components`, `@/components/ui`,
   `@/lib/utils`, `@/lib`, `@/hooks`; icon library lucide.
-- [ ] `src/lib/utils.ts`: the `cn()` helper.
-- [ ] Install `class-variance-authority`, `clsx`, `tailwind-merge@^2`,
+- [x] `src/lib/utils.ts`: the `cn()` helper.
+- [x] Install `class-variance-authority`, `clsx`, `tailwind-merge@^2`,
   `tailwindcss-animate`.
 - [ ] `tailwind.config.js`:
   - `darkMode: ["class"]`
@@ -396,7 +411,7 @@ chosen here and open to review:
 | `--primary-foreground`* | `0 0% 100%` | `0 0% 100%` |
 | `--destructive` | `0 72.2% 50.6%` (#dc2626) | same |
 | `--destructive-foreground`* | `0 0% 98%` | `0 0% 98%` |
-| `--chart-1` … `--chart-5` | the ramp in the prompt's order: #8ec5ff, #2b7fff, #155dfc, #1447e6, #193cb8 (**see Q7**) | same |
+| `--chart-1` … `--chart-5` | #155dfc, #2b7fff, #8ec5ff, #1447e6, #193cb8 (Q7) | same |
 | `--sidebar-background` | `0 0% 100%` | `0 0% 8.6%` |
 | `--sidebar-foreground`* | `0 0% 3.9%` | `0 0% 98%` |
 | `--sidebar-accent` | `0 0% 96.1%`* | `0 0% 14.9%` (active nav item) |
