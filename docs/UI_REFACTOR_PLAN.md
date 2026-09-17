@@ -5,7 +5,9 @@ Branch `feat/shadcn-ui`. Scope is UI only: no changes to `src/app/api/**`,
 `src/lib/leads.server.ts`, or any business rule. Every page keeps its current
 API calls.
 
-Status: **approved — implementing end to end.**
+Status: **implemented** — all eleven phases done on this branch; not merged.
+Findings that came up during the work are recorded in
+`docs/PROJECT_CONTEXT.md` §17 items 31–34.
 
 **Owner decisions** (17 Sep 2026): go with every recommendation in §4, and run
 all phases in one pass without stopping between them.
@@ -610,7 +612,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
     own components; `FLAG:` comments; how to add a primitive (§1.5)
   - §19 notes
   - §17: the tasks 50-row cap, and the Closed Won create bug if Q8 says yes
-- [ ] Final tsc and build; closing report listing everything left out for lack
+- [x] Final tsc and build; closing report listing everything left out for lack
   of data.
 
 ---
