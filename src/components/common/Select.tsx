@@ -29,6 +29,8 @@ interface SelectProps {
   /** Applied to the wrapper; call sites use it to set the width. */
   className?: string;
   align?: "left" | "right";
+  /** Put on the trigger, so a <Label htmlFor> can name the field. */
+  id?: string;
 }
 
 // FLAG: Radix reserves "" to mean "nothing selected" and shows the
@@ -48,6 +50,7 @@ export default function Select({
   placeholder = "Select...",
   className,
   align = "left",
+  id,
 }: SelectProps) {
   // A value that matches no option shows the placeholder, as it always did.
   // Callers rely on that: the Follow-up "Mark as" menu keeps its value at ""
@@ -61,7 +64,7 @@ export default function Select({
         value={matches ? toRadix(value) : ""}
         onValueChange={(next) => onChange(fromRadix(next))}
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger id={id} className="w-full">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent align={align === "right" ? "end" : "start"}>

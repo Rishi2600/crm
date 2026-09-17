@@ -27,6 +27,12 @@ export const DEAL_STAGE_COLOR: Record<string, string> = {
   "Closed Won": GOOD,
 };
 
+/** Deal status as the board shows it (derived from the stage). */
+export const DEAL_STATUS_COLOR: Record<string, string> = {
+  Won: GOOD,
+  Open: MUTED,
+};
+
 /** Lead statuses (the `leadStage` column; see docs/PROJECT_CONTEXT.md §7). */
 export const LEAD_STATUS_COLOR: Record<string, string> = {
   Fresh: RAMP.strong,

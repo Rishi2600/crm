@@ -17,6 +17,8 @@ interface DatePickerProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  /** Put on the trigger button, so a <Label htmlFor> can name the field. */
+  id?: string;
 }
 
 // The value is a plain calendar date with no time zone. Parsing it as local
@@ -44,6 +46,7 @@ export default function DatePicker({
   onChange,
   placeholder = "Select date",
   className,
+  id,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const selected = parseValue(value);
@@ -53,6 +56,7 @@ export default function DatePicker({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
+            id={id}
             type="button"
             variant="outline"
             className={cn(
