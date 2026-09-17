@@ -51,7 +51,7 @@ export default function AreaTrendChart({
 
   return (
     <ChartContainer config={config} className="aspect-auto w-full" style={{ height }}>
-      <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <AreaChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor={colour} stopOpacity={0.35} />

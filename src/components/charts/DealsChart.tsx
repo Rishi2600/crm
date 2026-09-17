@@ -31,7 +31,7 @@ export default function DealsChart({ data }: { data: GraphPoint[] }) {
           <ChartTooltip content={<ChartTooltipContent indicator="line" />} />
           {/* minPointSize keeps an empty month visible as a stub, as the
               hand-drawn bars did. */}
-          <Bar dataKey="value" fill="var(--color-value)" radius={4} minPointSize={2}>
+          <Bar dataKey="value" fill="var(--color-value)" radius={4} minPointSize={2} maxBarSize={48}>
             <LabelList
               dataKey="value"
               position="top"
