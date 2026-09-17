@@ -455,7 +455,7 @@ first.
 - [x] **Select** — primitives `select`. Rebuild `common/Select`: same props;
   `""` ↔ sentinel mapping; `align="right"` → `align="end"`; `className` sets
   the width; placeholder when nothing matches.
-- [ ] **DatePicker** — primitives `button`, `popover`, and `calendar`
+- [x] **DatePicker** — primitives `button`, `popover`, and `calendar`
   (**hand-fixed for v3; pin `react-day-picker@^9`; remove the direct
   `date-fns` dependency**). Rebuild `common/DatePicker`: string ↔ local `Date`,
   closes on pick, keeps "Clear date", same display format, Sunday first.
