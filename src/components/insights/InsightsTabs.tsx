@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InsightsTab } from "@/types/insights";
 
 const TABS: { label: string; value: InsightsTab }[] = [
@@ -11,39 +13,33 @@ const TABS: { label: string; value: InsightsTab }[] = [
 interface InsightsTabsProps {
   value: InsightsTab;
   onChange: (tab: InsightsTab) => void;
+  /** The content of whichever tab is selected. */
+  children?: ReactNode;
 }
 
 /**
- * Full-width three-way switcher at the top of the Dashboard. Styled as the
- * same segmented control the Tasks page uses for its status filter, so the
- * app has one segmented-control look rather than two.
+ * The three-way switch at the top of the Dashboard, on Radix Tabs (which adds
+ * arrow-key navigation between tabs).
+ *
+ * FLAG: deliberately ONE panel whose value always equals the selected tab,
+ * rather than a panel per tab. Lead and Follow-Up Insights share a single
+ * InsightsPanel instance, and that is what keeps the user's date range when
+ * they switch between the two. A panel per tab would unmount it on every
+ * switch and reset the range.
  */
-export default function InsightsTabs({ value, onChange }: InsightsTabsProps) {
+export default function InsightsTabs({ value, onChange, children }: InsightsTabsProps) {
   return (
-    <div
-      className="grid grid-cols-3 gap-1 p-1 rounded-lg"
-      style={{ background: "var(--bg-subtle)" }}
-      role="tablist"
-    >
-      {TABS.map((tab) => {
-        const isActive = value === tab.value;
-        return (
-          <button
-            key={tab.value}
-            role="tab"
-            aria-selected={isActive}
-            onClick={() => onChange(tab.value)}
-            className="px-3 py-2 rounded-md text-xs font-medium transition-colors"
-            style={{
-              background: isActive ? "var(--bg-card)" : "transparent",
-              color: isActive ? "var(--text)" : "var(--text-muted)",
-              border: `1px solid ${isActive ? "var(--border)" : "transparent"}`,
-            }}
-          >
+    <Tabs value={value} onValueChange={(v) => onChange(v as InsightsTab)} className="space-y-6">
+      <TabsList className="grid h-auto w-full grid-cols-3">
+        {TABS.map((tab) => (
+          <TabsTrigger key={tab.value} value={tab.value} className="text-xs">
             {tab.label}
-          </button>
-        );
-      })}
-    </div>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      <TabsContent value={value} className="mt-0">
+        {children}
+      </TabsContent>
+    </Tabs>
   );
 }

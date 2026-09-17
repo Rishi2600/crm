@@ -93,8 +93,7 @@ export default function DashboardPage() {
 
         {/* Content */}
         <div className="space-y-6">
-          <InsightsTabs value={tab} onChange={setTab} />
-
+          <InsightsTabs value={tab} onChange={setTab}>
           {/* Lead / Follow-Up Insights — KPI cards + trend graph */}
           {tab !== "deal" && <InsightsPanel tab={tab} />}
 
@@ -185,6 +184,7 @@ export default function DashboardPage() {
               )}
             </>
           )}
+          </InsightsTabs>
         </div>
     </>
   );

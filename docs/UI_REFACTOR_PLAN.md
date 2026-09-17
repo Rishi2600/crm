@@ -521,7 +521,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
 
 ### Phase 5: Dashboard
 
-- [ ] `InsightsTabs` → shadcn `tabs`, keeping the same values and lazy Deal
+- [x] `InsightsTabs` → shadcn `tabs`, keeping the same values and lazy Deal
   fetch.
 - [ ] Deal Insights metric strip (change line on Total Revenue only).
 - [ ] `RevenueChart` → gradient area chart using `ChartContainer`.
