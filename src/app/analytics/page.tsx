@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
-import Select from "@/components/ui/Select";
-import DatePicker from "@/components/ui/DatePicker";
-import LoadingState from "@/components/ui/LoadingState";
+import Select from "@/components/common/Select";
+import DatePicker from "@/components/common/DatePicker";
+import LoadingState from "@/components/common/LoadingState";
 import { AnalyticsDashboardResponse } from "@/types/analytics";
 import { formatINR, formatINRExact } from "@/lib/currency";
 

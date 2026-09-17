@@ -11,7 +11,7 @@ import ActivityFeed from "@/components/cards/ActivityFeed";
 import { formatINR } from "@/lib/currency";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
-import LoadingState from "@/components/ui/LoadingState";
+import LoadingState from "@/components/common/LoadingState";
 import InsightsTabs from "@/components/insights/InsightsTabs";
 import InsightsPanel from "@/components/insights/InsightsPanel";
 

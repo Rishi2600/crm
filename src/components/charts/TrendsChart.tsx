@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import Select from "@/components/ui/Select";
+import Select from "@/components/common/Select";
 import { TrendGranularity, TrendMetric, TrendPoint } from "@/types/insights";
 
 const METRIC_OPTIONS: { label: string; value: TrendMetric }[] = [

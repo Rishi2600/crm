@@ -426,15 +426,15 @@ colour when charts are built.
 
 ### Phase 2: Clear the `ui/` folder
 
-- [ ] `git mv` Select, DatePicker, Dialog, ConfirmDialog, Toast, LoadingState
+- [x] `git mv` Select, DatePicker, Dialog, ConfirmDialog, Toast, LoadingState
   and RevealOnHover from `src/components/ui/` to `src/components/common/`.
-- [ ] Update imports in the 12 files that use them:
+- [x] Update imports in the 12 files that use them:
   - `app/layout.tsx`
   - the pages: analytics, contacts, dashboard, deals, follow-ups, leads,
     `leads/[id]`, tasks
   - components: `charts/TrendsChart`, `insights/DateRangeFilter`, and
     `common/ConfirmDialog` (which imports `Dialog`)
-- [ ] Verify: tsc and build. Behaviour is unchanged. This is one commit; pure
+- [x] Verify: tsc and build. Behaviour is unchanged. This is one commit; pure
   moves don't count towards the line limit.
 
 ### Phase 3: Primitives and shared components

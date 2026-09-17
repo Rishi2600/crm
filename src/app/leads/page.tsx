@@ -19,12 +19,12 @@ import {
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
 import InsightCard from "@/components/insights/InsightCard";
-import RevealOnHover, { RevealLine } from "@/components/ui/RevealOnHover";
-import Select from "@/components/ui/Select";
-import DatePicker from "@/components/ui/DatePicker";
-import Dialog from "@/components/ui/Dialog";
-import LoadingState from "@/components/ui/LoadingState";
-import { useToast } from "@/components/ui/Toast";
+import RevealOnHover, { RevealLine } from "@/components/common/RevealOnHover";
+import Select from "@/components/common/Select";
+import DatePicker from "@/components/common/DatePicker";
+import Dialog from "@/components/common/Dialog";
+import LoadingState from "@/components/common/LoadingState";
+import { useToast } from "@/components/common/Toast";
 import { SUB_STATUS_BY_STATUS } from "@/lib/leads";
 import {
   LeadsApiResponse,

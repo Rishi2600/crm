@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useRef, useState } from "react";
-import Dialog from "@/components/ui/Dialog";
+import Dialog from "@/components/common/Dialog";
 
 interface ConfirmOptions {
   title: string;

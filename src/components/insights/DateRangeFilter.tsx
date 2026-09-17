@@ -1,7 +1,7 @@
 "use client";
 
-import Select from "@/components/ui/Select";
-import DatePicker from "@/components/ui/DatePicker";
+import Select from "@/components/common/Select";
+import DatePicker from "@/components/common/DatePicker";
 import { DateRange, DateRangePreset } from "@/types/insights";
 
 const PRESET_OPTIONS: { label: string; value: DateRangePreset }[] = [

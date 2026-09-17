@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import ToastProvider from "@/components/ui/Toast";
-import ConfirmProvider from "@/components/ui/ConfirmDialog";
+import ToastProvider from "@/components/common/Toast";
+import ConfirmProvider from "@/components/common/ConfirmDialog";
 
 export const metadata: Metadata = {
   title: "CRM",

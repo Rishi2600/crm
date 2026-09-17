@@ -16,11 +16,11 @@ import {
 } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
 import ThemeToggle from "@/components/layout/ThemeToggle";
-import Select from "@/components/ui/Select";
-import DatePicker from "@/components/ui/DatePicker";
-import Dialog from "@/components/ui/Dialog";
-import LoadingState from "@/components/ui/LoadingState";
-import { useToast } from "@/components/ui/Toast";
+import Select from "@/components/common/Select";
+import DatePicker from "@/components/common/DatePicker";
+import Dialog from "@/components/common/Dialog";
+import LoadingState from "@/components/common/LoadingState";
+import { useToast } from "@/components/common/Toast";
 import { SUB_STATUS_BY_STATUS } from "@/lib/leads";
 import {
   LeadDetail,
