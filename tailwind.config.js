@@ -15,12 +15,7 @@ module.exports = {
       // such as `bg-primary/20` work: Tailwind can only add an alpha value to
       // a colour whose components it can see.
       colors: {
-        // FLAG: temporarily `--ui-border`, not shadcn's usual `--border`. The
-        // old `--border` holds a finished colour that ~140 inline styles read
-        // (`1px solid var(--border)`), and bare HSL channels in its place would
-        // make those borders silently vanish. Renamed back once no page reads
-        // the old variable any more.
-        border: "hsl(var(--ui-border))",
+        border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",

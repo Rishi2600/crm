@@ -14,6 +14,8 @@
    light theme mirrors its structure. */
 @layer base {
   :root {
+    /* Native controls (the time picker, scrollbars) follow the theme too. */
+    color-scheme: light;
     --background: 0 0% 98%;
     --foreground: 0 0% 3.9%;
     --card: 0 0% 100%;
@@ -30,9 +32,7 @@
     --accent-foreground: 0 0% 9%;
     --destructive: 0 72.2% 50.6%;
     --destructive-foreground: 0 0% 98%;
-    /* FLAG: shadcn's --border, renamed while the legacy --border below is
-       still read by unconverted pages. See tailwind.config.js. */
-    --ui-border: 0 0% 89.8%;
+    --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
     --ring: 221.3 97.5% 53.5%;
     --radius: 0.625rem;
@@ -56,6 +56,7 @@
   }
 
   .dark {
+    color-scheme: dark;
     --background: 0 0% 3.1%;
     --foreground: 0 0% 98%;
     --card: 0 0% 8.6%;
@@ -72,7 +73,7 @@
     --accent-foreground: 0 0% 98%;
     --destructive: 0 72.2% 50.6%;
     --destructive-foreground: 0 0% 98%;
-    --ui-border: 0 0% 14.9%;
+    --border: 0 0% 14.9%;
     --input: 0 0% 14.9%;
     --ring: 221.3 97.5% 53.5%;
 
@@ -94,22 +95,12 @@
   }
 }
 
-/* ── Legacy names ─────────────────────────────────────────────────────────────
-   FLAG: temporary. Pages not yet converted still colour themselves with
-   inline `var(--bg)`-style values, which need finished colours. These point
-   the old names at the new tokens so those pages pick up the new palette
-   unchanged. Removed once nothing reads them.
-   --text-faint, --green, --red and --live are not aliases: they keep their
-   own values for good. */
+/* ── Semantic colours ─────────────────────────────────────────────────────────
+   Finished colours rather than HSL channels, exposed to Tailwind as `faint`,
+   `success`, `danger` and `live`, and read directly by statusColors.ts. They
+   lighten in the dark theme so small text stays readable. */
 @layer base {
   :root {
-    --bg: hsl(var(--background));
-    --bg-subtle: hsl(var(--muted));
-    --bg-card: hsl(var(--card));
-    --border: hsl(var(--ui-border));
-    --text: hsl(var(--foreground));
-    --text-muted: hsl(var(--muted-foreground));
-
     --text-faint: #cccccc;
     --green: #16a34a;
     --red: #dc2626;
@@ -147,10 +138,5 @@
 
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: hsl(var(--ui-border)); border-radius: 2px; }
-}
-
-@keyframes crm-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 2px; }
 }

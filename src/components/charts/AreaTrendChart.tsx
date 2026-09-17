@@ -86,7 +86,7 @@ export default function AreaTrendChart({
           }
         />
         <ChartTooltip
-          cursor={{ stroke: "hsl(var(--ui-border))" }}
+          cursor={{ stroke: "hsl(var(--border))" }}
           content={
             <ChartTooltipContent
               indicator="line"

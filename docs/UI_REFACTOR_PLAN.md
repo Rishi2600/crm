@@ -581,7 +581,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
 - [x] Date range controls, metric strip, revenue area chart, grouped bars
   (deals vs contacts), funnel per Q1, leaderboard with a sort toggle.
 - [x] Skeletons.
-- [ ] Verify, then report.
+- [x] Verify, then report.
 
 ### Phase 10: Login and landing
 
@@ -589,16 +589,16 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
   motion as it is today; no shell.
 - [x] Landing: token classes and shadcn buttons; no shell. Its `$284.5K`,
   outdated copy and auth-only visibility are §17 items and stay as they are.
-- [ ] Verify, then report.
+- [x] Verify, then report.
 
 ### Phase 11: Clean-up
 
-- [ ] Confirm zero `var(--bg|--bg-subtle|--bg-card|--border|--text|--text-muted)`
+- [x] Confirm zero `var(--bg|--bg-subtle|--bg-card|--border|--text|--text-muted)`
   remain.
-- [ ] Remove the alias block.
-- [ ] Rename `--ui-border` back to `--border` in `globals.css` and
+- [x] Remove the alias block.
+- [x] Rename `--ui-border` back to `--border` in `globals.css` and
   `tailwind.config.js`.
-- [ ] Delete unused code, searching before each deletion: `ComingSoon`, the old
+- [x] Delete unused code, searching before each deletion: `ComingSoon`, the old
   cards, `Spinner` if unused, any `common/` component nothing imports.
 - [ ] `docs/PROJECT_CONTEXT.md`:
   - §4 layout: `(app)` group, `components/common`, `hooks`, `components.json`
