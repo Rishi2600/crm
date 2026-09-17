@@ -487,10 +487,10 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
 - [x] `git mv` the dashboard, leads, contacts, deals, follow-ups, tasks and
   analytics pages into `src/app/(app)/`. This is a pure move; the URLs stay the
   same.
-- [ ] `src/app/(app)/layout.tsx` + `components/layout/AppShell.tsx`:
+- [x] `src/app/(app)/layout.tsx` + `components/layout/AppShell.tsx`:
   `SidebarProvider` → `AppSidebar` (`variant="inset"`, `collapsible="icon"`) +
   `SidebarInset` → top bar + page.
-- [ ] `components/layout/AppSidebar.tsx`:
+- [x] `components/layout/AppSidebar.tsx`:
   - a static "CRM" brand block
   - the current nav items and labels, in the current order, with prefix-based
     active state
@@ -499,7 +499,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
     exactly as today**
 - [x] `components/layout/PageHeader.tsx`: the slot context, plus
   `<PageHeader title>{controls}</PageHeader>`.
-- [ ] Top bar: sidebar toggle, separator, title slot, controls slot, search
+- [x] Top bar: sidebar toggle, separator, title slot, controls slot, search
   button.
 - [x] `components/layout/CommandMenu.tsx`: navigation only, opened with
   Cmd/Ctrl+K, from the search button, or from the sidebar search entry.
