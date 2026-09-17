@@ -1,49 +1,154 @@
+/* FLAG: this @import must stay the very first rule in the file. Browsers
+   ignore an @import that comes after any other rule, and that is exactly
+   where it used to sit, below the @tailwind directives, so the Inter web font
+   never actually loaded and the app rendered in the system font. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* ── Design tokens ────────────────────────────────────────────────────────────
+   Bare HSL channels, wrapped in hsl() by tailwind.config.js so opacity
+   modifiers work. The dark theme is sampled from the reference design; the
+   light theme mirrors its structure. */
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 221.3 97.5% 53.5%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 72.2% 50.6%;
+    --destructive-foreground: 0 0% 98%;
+    /* FLAG: shadcn's --border, renamed while the legacy --border below is
+       still read by unconverted pages. See tailwind.config.js. */
+    --ui-border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 221.3 97.5% 53.5%;
+    --radius: 0.625rem;
 
-:root {
-  --bg:         #ffffff;
-  --bg-subtle:  #fafafa;
-  --bg-card:    #ffffff;
-  --border:     #ebebeb;
-  --text:       #0f0f0f;
-  --text-muted: #999999;
-  --text-faint: #cccccc;
-  --green:      #16a34a;
-  --red:        #dc2626;
-  --live:       #22c55e;
+    /* The blue ramp, strongest first so single-series charts use chart-1. */
+    --chart-1: 221.3 97.5% 53.5%;
+    --chart-2: 216.2 100% 58.4%;
+    --chart-3: 210.8 100% 77.8%;
+    --chart-4: 225.4 84% 49%;
+    --chart-5: 226.8 76.1% 41%;
+    --chart-axis: 0 0% 45.1%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 3.9%;
+    --sidebar-primary: 221.3 97.5% 53.5%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 96.1%;
+    --sidebar-accent-foreground: 0 0% 9%;
+    --sidebar-border: 0 0% 89.8%;
+    --sidebar-ring: 221.3 97.5% 53.5%;
+  }
+
+  .dark {
+    --background: 0 0% 3.1%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 8.6%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 8.6%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 221.3 97.5% 53.5%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.1%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 72.2% 50.6%;
+    --destructive-foreground: 0 0% 98%;
+    --ui-border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 221.3 97.5% 53.5%;
+
+    --chart-1: 221.3 97.5% 53.5%;
+    --chart-2: 216.2 100% 58.4%;
+    --chart-3: 210.8 100% 77.8%;
+    --chart-4: 225.4 84% 49%;
+    --chart-5: 226.8 76.1% 41%;
+    --chart-axis: 0 0% 38.4%;
+
+    --sidebar-background: 0 0% 8.6%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 221.3 97.5% 53.5%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 14.9%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 14.9%;
+    --sidebar-ring: 221.3 97.5% 53.5%;
+  }
 }
 
-.dark {
-  --bg:         #0a0a0a;
-  --bg-subtle:  #111111;
-  --bg-card:    #111111;
-  --border:     #1f1f1f;
-  --text:       #f0f0f0;
-  --text-muted: #666666;
-  --text-faint: #2a2a2a;
-  --green:      #4ade80;
-  --red:        #f87171;
-  --live:       #4ade80;
+/* ── Legacy names ─────────────────────────────────────────────────────────────
+   FLAG: temporary. Pages not yet converted still colour themselves with
+   inline `var(--bg)`-style values, which need finished colours. These point
+   the old names at the new tokens so those pages pick up the new palette
+   unchanged. Removed once nothing reads them.
+   --text-faint, --green, --red and --live are not aliases: they keep their
+   own values for good. */
+@layer base {
+  :root {
+    --bg: hsl(var(--background));
+    --bg-subtle: hsl(var(--muted));
+    --bg-card: hsl(var(--card));
+    --border: hsl(var(--ui-border));
+    --text: hsl(var(--foreground));
+    --text-muted: hsl(var(--muted-foreground));
+
+    --text-faint: #cccccc;
+    --green: #16a34a;
+    --red: #dc2626;
+    --live: #22c55e;
+  }
+
+  .dark {
+    --text-faint: #525252;
+    --green: #4ade80;
+    --red: #f87171;
+    --live: #4ade80;
+  }
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: "Inter", system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  transition: background 0.15s ease, color 0.15s ease;
+  body {
+    @apply bg-background font-sans text-foreground;
+    -webkit-font-smoothing: antialiased;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  /* shadcn components set focus-visible:outline-none and draw their own ring,
+     which outranks this rule. Everything else keeps a visible outline. */
+  :focus-visible {
+    outline: 1.5px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: hsl(var(--ui-border)); border-radius: 2px; }
 }
-
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-:focus-visible { outline: 1.5px solid var(--text); outline-offset: 2px; }
 
 @keyframes crm-spin {
   from { transform: rotate(0deg); }

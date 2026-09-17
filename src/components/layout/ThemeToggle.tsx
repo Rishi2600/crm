@@ -4,10 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sun, Moon } from "lucide-react";
 
-// Must match --bg values in globals.css for light/dark — the overlay circle
-// uses these directly so the "flood" color matches the real theme exactly.
-const BG_LIGHT = "#ffffff";
-const BG_DARK = "#0a0a0a";
+// FLAG: must match --background in src/app/globals.css (light 0 0% 98%,
+// dark 0 0% 3.1%). The overlay circle is painted in these colours, so if
+// they drift from the real theme the switch flashes a wrong colour before
+// settling.
+const BG_LIGHT = "#fafafa";
+const BG_DARK = "#080808";
 
 interface Overlay {
   x: number;

@@ -359,7 +359,7 @@ returns.
 - [x] `src/lib/utils.ts`: the `cn()` helper.
 - [x] Install `class-variance-authority`, `clsx`, `tailwind-merge@^2`,
   `tailwindcss-animate`.
-- [ ] `tailwind.config.js`:
+- [x] `tailwind.config.js`:
   - `darkMode: ["class"]`
   - colours as `hsl(var(--token))` for background, foreground, card, popover,
     primary, secondary, muted, accent, destructive, input and ring, with
@@ -372,14 +372,14 @@ returns.
   - accordion keyframes and animations
   - the `tailwindcss-animate` plugin
   - remove the `brand` and `surface` scales; keep `fontFamily`
-- [ ] `globals.css`:
+- [x] `globals.css`:
   - move the Google Fonts `@import` above the `@tailwind` directives
   - add the token blocks below
   - base layer: `* { @apply border-border }`, and `body` with
     `bg-background text-foreground`
   - move the `*` reset into `@layer base`
   - recolour the global `:focus-visible` outline to `hsl(var(--ring))`
-- [ ] Legacy alias block, marked `FLAG:` as temporary, in both themes:
+- [x] Legacy alias block, marked `FLAG:` as temporary, in both themes:
   - `--bg: hsl(var(--background))`
   - `--bg-subtle: hsl(var(--muted))`
   - `--bg-card: hsl(var(--card))`
@@ -388,10 +388,10 @@ returns.
   - `--text-muted: hsl(var(--muted-foreground))`
   - `--text-faint`, `--green`, `--red` and `--live` keep their own values; dark
     `--text-faint` becomes `#525252`.
-- [ ] `src/components/layout/ThemeToggle.tsx`: overlay colours become `#fafafa`
+- [x] `src/components/layout/ThemeToggle.tsx`: overlay colours become `#fafafa`
   (light) and `#080808` (dark), with a `FLAG:` comment tying them to
   `globals.css`.
-- [ ] Verify: tsc, build. Owner checks both themes for the new palette and the
+- [x] Verify: tsc, build. Owner checks both themes for the new palette and the
   Inter font.
 
 **Tokens** — HSL channel values; `*` marks values the prompt didn't specify,

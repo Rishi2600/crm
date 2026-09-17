@@ -1,5 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  // Dark mode follows the `.dark` class the pre-paint script in
+  // src/app/layout.tsx and ThemeToggle put on <html>.
+  darkMode: ["class"],
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -7,22 +10,95 @@ module.exports = {
   ],
   theme: {
     extend: {
+      // Every colour is a CSS variable holding bare HSL channels, wrapped in
+      // hsl() here. Keeping the channels bare is what lets opacity modifiers
+      // such as `bg-primary/20` work: Tailwind can only add an alpha value to
+      // a colour whose components it can see.
       colors: {
-        // CRM Brand Palette
-        brand: {
-          50:  "#eef2ff",
-          100: "#e0e7ff",
-          500: "#6366f1",
-          600: "#4f46e5",
-          700: "#4338ca",
-          900: "#1e1b4b",
+        // FLAG: temporarily `--ui-border`, not shadcn's usual `--border`. The
+        // old `--border` holds a finished colour that ~140 inline styles read
+        // (`1px solid var(--border)`), and bare HSL channels in its place would
+        // make those borders silently vanish. Renamed back once no page reads
+        // the old variable any more.
+        border: "hsl(var(--ui-border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
         },
-        surface: {
-          DEFAULT: "#0f0f17",  // deep navy-black bg
-          card:    "#16161f",  // card bg
-          border:  "#1e1e2e",  // subtle borders
-          muted:   "#6b7280",
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
         },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+        // One blue ramp carries every chart, progress bar and active state.
+        chart: {
+          1: "hsl(var(--chart-1))",
+          2: "hsl(var(--chart-2))",
+          3: "hsl(var(--chart-3))",
+          4: "hsl(var(--chart-4))",
+          5: "hsl(var(--chart-5))",
+        },
+        // Chart axis labels sit a step fainter than muted text.
+        axis: "hsl(var(--chart-axis))",
+        sidebar: {
+          DEFAULT: "hsl(var(--sidebar-background))",
+          foreground: "hsl(var(--sidebar-foreground))",
+          primary: "hsl(var(--sidebar-primary))",
+          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
+          accent: "hsl(var(--sidebar-accent))",
+          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
+          border: "hsl(var(--sidebar-border))",
+          ring: "hsl(var(--sidebar-ring))",
+        },
+        // Semantic colours that keep their own finished values rather than
+        // HSL channels, so they take no opacity modifier. Green and red mean
+        // good and bad, never simply up and down.
+        faint: "var(--text-faint)",
+        success: "var(--green)",
+        live: "var(--live)",
+      },
+      borderRadius: {
+        xl: "calc(var(--radius) + 4px)",
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+      keyframes: {
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
@@ -30,5 +106,5 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")],
 };
