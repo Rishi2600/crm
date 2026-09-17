@@ -9,8 +9,7 @@ import RevenueChart from "@/components/charts/RevenueChart";
 import PipelineChart from "@/components/charts/PipelineChart";
 import ActivityFeed from "@/components/cards/ActivityFeed";
 import { formatINR } from "@/lib/currency";
-import Sidebar from "@/components/layout/Sidebar";
-import ThemeToggle from "@/components/layout/ThemeToggle";
+import { PageHeader } from "@/components/layout/PageHeader";
 import LoadingState from "@/components/common/LoadingState";
 import InsightsTabs from "@/components/insights/InsightsTabs";
 import InsightsPanel from "@/components/insights/InsightsPanel";
@@ -75,30 +74,25 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
-      <Sidebar />
-
-      <main className="flex-1 ml-52 min-h-screen">
-        {/* Top bar */}
-        <div className="h-14 flex items-center justify-between px-8"
-          style={{ borderBottom: "1px solid var(--border)" }}>
-          <div>
-            <span className="text-sm font-medium" style={{ color: "var(--text)" }}>
-              {greeting()}{userName ? `, ${userName.split(" ")[0]}` : ""}
-            </span>
-            <span className="text-sm ml-2" style={{ color: "var(--text-muted)" }}>{dateStr}</span>
+    <>
+        <PageHeader
+          title={
+            <>
+              <span className="truncate font-medium text-foreground">
+                {greeting()}{userName ? `, ${userName.split(" ")[0]}` : ""}
+              </span>
+              <span className="hidden truncate text-muted-foreground sm:inline">{dateStr}</span>
+            </>
+          }
+        >
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="size-1.5 rounded-full bg-live" aria-hidden />
+            Live
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
-              <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--live)" }} />
-              Live
-            </div>
-            <ThemeToggle />
-          </div>
-        </div>
+        </PageHeader>
 
         {/* Content */}
-        <div className="p-8 space-y-6">
+        <div className="space-y-6">
           <InsightsTabs value={tab} onChange={setTab} />
 
           {/* Lead / Follow-Up Insights — KPI cards + trend graph */}
@@ -192,7 +186,6 @@ export default function DashboardPage() {
             </>
           )}
         </div>
-      </main>
-    </div>
+    </>
   );
 }

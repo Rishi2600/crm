@@ -3,8 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarClock } from "lucide-react";
-import Sidebar from "@/components/layout/Sidebar";
-import ThemeToggle from "@/components/layout/ThemeToggle";
+import { PageHeader } from "@/components/layout/PageHeader";
 import Select from "@/components/common/Select";
 import DatePicker from "@/components/common/DatePicker";
 import Dialog from "@/components/common/Dialog";
@@ -259,19 +258,16 @@ export default function FollowUpsPage() {
   const hasFilters = !!(search || agent || from || to || filter !== "all");
 
   return (
-    <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
-      <Sidebar />
+    <>
+        <PageHeader
+          title={
+            <span className="font-medium text-foreground">
+              Follow-up {total > 0 && <span className="text-muted-foreground">· {total}</span>}
+            </span>
+          }
+        />
 
-      <main className="flex-1 ml-52 min-h-screen">
-        {/* Top bar */}
-        <div className="h-14 flex items-center justify-between px-8" style={{ borderBottom: "1px solid var(--border)" }}>
-          <span className="text-sm font-medium" style={{ color: "var(--text)" }}>
-            Follow-up {total > 0 && <span style={{ color: "var(--text-muted)" }}>· {total}</span>}
-          </span>
-          <ThemeToggle />
-        </div>
-
-        <div className="p-8 space-y-5">
+        <div className="space-y-5">
           {/* Summary tiles */}
           <div className="grid grid-cols-7 gap-3">
             {SUMMARY_TILES.map((tile) => (
@@ -602,7 +598,6 @@ export default function FollowUpsPage() {
             />
           </div>
         </Dialog>
-      </main>
-    </div>
+    </>
   );
 }

@@ -3,8 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarClock } from "lucide-react";
-import Sidebar from "@/components/layout/Sidebar";
-import ThemeToggle from "@/components/layout/ThemeToggle";
+import { PageHeader } from "@/components/layout/PageHeader";
 import Select from "@/components/common/Select";
 import DatePicker from "@/components/common/DatePicker";
 import Dialog from "@/components/common/Dialog";
@@ -192,19 +191,16 @@ export default function ContactsPage() {
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
-      <Sidebar />
+    <>
+        <PageHeader
+          title={
+            <span className="font-medium text-foreground">
+              Contacts {total > 0 && <span className="text-muted-foreground">· {total}</span>}
+            </span>
+          }
+        />
 
-      <main className="flex-1 ml-52 min-h-screen">
-        {/* Top bar */}
-        <div className="h-14 flex items-center justify-between px-8" style={{ borderBottom: "1px solid var(--border)" }}>
-          <span className="text-sm font-medium" style={{ color: "var(--text)" }}>
-            Contacts {total > 0 && <span style={{ color: "var(--text-muted)" }}>· {total}</span>}
-          </span>
-          <ThemeToggle />
-        </div>
-
-        <div className="p-8">
+        <div>
           {/* Controls */}
           <div className="flex items-center justify-between mb-5">
             {/* Search */}
@@ -460,7 +456,6 @@ export default function ContactsPage() {
             />
           </div>
         </Dialog>
-      </main>
-    </div>
+    </>
   );
 }

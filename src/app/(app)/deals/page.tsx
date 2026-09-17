@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Sidebar from "@/components/layout/Sidebar";
-import ThemeToggle from "@/components/layout/ThemeToggle";
+import { PageHeader } from "@/components/layout/PageHeader";
 import Select from "@/components/common/Select";
 import DatePicker from "@/components/common/DatePicker";
 import Dialog from "@/components/common/Dialog";
@@ -218,19 +217,16 @@ export default function DealsPage() {
   const summaryFor = (stage: string) => summary.find((s) => s.stage === stage);
 
   return (
-    <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
-      <Sidebar />
+    <>
+        <PageHeader
+          title={
+            <span className="font-medium text-foreground">
+              Deals {pipeline.length > 0 && <span className="text-muted-foreground">· {pipeline.length}</span>}
+            </span>
+          }
+        />
 
-      <main className="flex-1 ml-52 min-h-screen">
-        {/* Top bar */}
-        <div className="h-14 flex items-center justify-between px-8" style={{ borderBottom: "1px solid var(--border)" }}>
-          <span className="text-sm font-medium" style={{ color: "var(--text)" }}>
-            Deals {pipeline.length > 0 && <span style={{ color: "var(--text-muted)" }}>· {pipeline.length}</span>}
-          </span>
-          <ThemeToggle />
-        </div>
-
-        <div className="p-8">
+        <div>
           {/* Controls */}
           <div className="flex items-center justify-between mb-5">
             <div className="relative max-w-xs w-full">
@@ -433,7 +429,6 @@ export default function DealsPage() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+    </>
   );
 }

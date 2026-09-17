@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Sidebar from "@/components/layout/Sidebar";
-import ThemeToggle from "@/components/layout/ThemeToggle";
+import { PageHeader } from "@/components/layout/PageHeader";
 import Select from "@/components/common/Select";
 import DatePicker from "@/components/common/DatePicker";
 import Dialog from "@/components/common/Dialog";
@@ -205,18 +204,16 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
-      <Sidebar />
+    <>
+        <PageHeader
+          title={
+            <span className="font-medium text-foreground">
+              Tasks {total > 0 && <span className="text-muted-foreground">· {total}</span>}
+            </span>
+          }
+        />
 
-      <main className="flex-1 ml-52 min-h-screen">
-        <div className="h-14 flex items-center justify-between px-8" style={{ borderBottom: "1px solid var(--border)" }}>
-          <span className="text-sm font-medium" style={{ color: "var(--text)" }}>
-            Tasks {total > 0 && <span style={{ color: "var(--text-muted)" }}>· {total}</span>}
-          </span>
-          <ThemeToggle />
-        </div>
-
-        <div className="p-8">
+        <div>
           {/* Controls */}
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: "var(--bg-subtle)" }}>
@@ -384,7 +381,6 @@ export default function TasksPage() {
             ))}
           </div>
         </div>
-      </main>
-    </div>
+    </>
   );
 }

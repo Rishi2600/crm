@@ -16,8 +16,7 @@ import {
   UserPlus,
   type LucideIcon,
 } from "lucide-react";
-import Sidebar from "@/components/layout/Sidebar";
-import ThemeToggle from "@/components/layout/ThemeToggle";
+import { PageHeader } from "@/components/layout/PageHeader";
 import InsightCard from "@/components/insights/InsightCard";
 import RevealOnHover, { RevealLine } from "@/components/common/RevealOnHover";
 import Select from "@/components/common/Select";
@@ -461,18 +460,16 @@ export default function LeadsPage() {
       : ALL_SUB_STATUSES;
 
   return (
-    <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
-      <Sidebar />
+    <>
+        <PageHeader
+          title={
+            <span className="font-medium text-foreground">
+              Leads {total > 0 && <span className="text-muted-foreground">· {total}</span>}
+            </span>
+          }
+        />
 
-      <main className="flex-1 ml-52 min-h-screen">
-        <div className="h-14 flex items-center justify-between px-8" style={{ borderBottom: "1px solid var(--border)" }}>
-          <span className="text-sm font-medium" style={{ color: "var(--text)" }}>
-            Leads {total > 0 && <span style={{ color: "var(--text-muted)" }}>· {total}</span>}
-          </span>
-          <ThemeToggle />
-        </div>
-
-        <div className="p-8 space-y-5">
+        <div className="space-y-5">
           {/* KPI cards */}
           <div>
             <div className="grid gap-3 grid-cols-4">
@@ -984,8 +981,7 @@ export default function LeadsPage() {
             <FormInput placeholder="Notes (optional)" value={fuNotes} onChange={setFuNotes} />
           </div>
         </Dialog>
-      </main>
-    </div>
+    </>
   );
 }
 
