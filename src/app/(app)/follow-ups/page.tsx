@@ -2,14 +2,38 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock } from "lucide-react";
+import { Ban, CalendarClock, CheckCircle2, ClipboardCheck, PhoneMissed, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import Select from "@/components/common/Select";
 import DatePicker from "@/components/common/DatePicker";
 import Dialog from "@/components/common/Dialog";
-import LoadingState from "@/components/common/LoadingState";
+import ErrorBanner from "@/components/common/ErrorBanner";
+import FilterPills from "@/components/common/FilterPills";
+import FollowUpFields from "@/components/common/FollowUpFields";
+import FormField from "@/components/common/FormField";
+import InitialsAvatar from "@/components/common/InitialsAvatar";
+import MetricStrip from "@/components/common/MetricStrip";
+import PaginationFooter from "@/components/common/PaginationFooter";
 import RevealOnHover, { RevealLine } from "@/components/common/RevealOnHover";
+import RowActionsMenu from "@/components/common/RowActionsMenu";
+import SearchInput from "@/components/common/SearchInput";
+import StatusBadge from "@/components/common/StatusBadge";
+import { TableMessageRow, TableSkeletonRows } from "@/components/common/TableStates";
+import { FOLLOW_UP_STATUS_COLOR } from "@/components/common/statusColors";
 import { useToast } from "@/components/common/Toast";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import {
   FollowUpsApiResponse,
   FollowUpResponse,
@@ -46,13 +70,14 @@ const PILLS: { label: string; value: FollowUpFilter; key: keyof FollowUpSummary 
   { label: "RESCHEDULED", value: "rescheduled", key: "rescheduled" },
 ];
 
-const STATUS_COLOR: Record<string, string> = {
-  Planned: "var(--text-muted)",
-  Pending: "#d97706",
-  Done: "var(--green)",
-  Missed: "var(--red)",
-  Cancelled: "var(--text-faint)",
-};
+// What "Mark as" offers on a row that isn't Done yet.
+const MARK_AS: { value: string; icon: typeof Ban }[] = [
+  { value: "Done", icon: CheckCircle2 },
+  { value: "Missed", icon: PhoneMissed },
+  { value: "Cancelled", icon: Ban },
+];
+
+const TABLE_COLUMNS = 5;
 
 function formatWhen(iso: string): string {
   const d = new Date(iso);
@@ -139,7 +164,7 @@ export default function FollowUpsPage() {
   // Covers the initial load as well as every non-search filter change.
   useEffect(() => { fetchFollowUps(); }, [filter, sort, page, agent, from, to]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debounced search — 🚩 same fix as Contacts/Deals/Tasks: skip the
+  // Debounced search — FLAG: same fix as Contacts/Deals/Tasks: skip the
   // mount-time run, since the effect above already fetches on first load.
   const isFirstSearchRun = useRef(true);
   useEffect(() => {
@@ -165,8 +190,8 @@ export default function FollowUpsPage() {
 
     fetch("/api/contacts?limit=100", auth)
       .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        if (json) setContactOptions(json.data.map((c: any) => ({ id: c.id, name: c.name })));
+      .then((json: { data: ContactOption[] } | null) => {
+        if (json) setContactOptions(json.data.map((c) => ({ id: c.id, name: c.name })));
       })
       .catch(() => {});
   }, []);
@@ -255,6 +280,13 @@ export default function FollowUpsPage() {
     }
   }
 
+  function openReschedule(f: FollowUpResponse) {
+    setRescheduling(f);
+    setNewDate("");
+    setNewTime("09:00");
+    setRescheduleError("");
+  }
+
   const hasFilters = !!(search || agent || from || to || filter !== "all");
 
   return (
@@ -265,246 +297,193 @@ export default function FollowUpsPage() {
               Follow-up {total > 0 && <span className="text-muted-foreground">· {total}</span>}
             </span>
           }
-        />
+        >
+          <Button size="sm" onClick={() => setShowForm(true)} aria-label="New Follow-Up">
+            <Plus aria-hidden />
+            <span className="hidden sm:inline">New Follow-Up</span>
+          </Button>
+        </PageHeader>
 
-        <div className="space-y-5">
-          {/* Summary tiles */}
-          <div className="grid grid-cols-7 gap-3">
-            {SUMMARY_TILES.map((tile) => (
-              <div
-                key={tile.key}
-                className="p-4 rounded-xl text-center"
-                style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
-              >
-                <div className="text-xs" style={{ color: "var(--text-muted)" }}>{tile.label}</div>
-                <div className="text-2xl font-semibold mt-2 tabular-nums" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
-                  {summary[tile.key].toLocaleString()}
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="space-y-4">
+          {/* Summary strip — skeletons only until the first answer arrives;
+              later reloads keep the last numbers on screen. */}
+          <MetricStrip
+            perRow={7}
+            loading={loading && summary === EMPTY_SUMMARY}
+            metrics={SUMMARY_TILES.map((tile) => ({
+              label: tile.label,
+              value: summary[tile.key].toLocaleString(),
+            }))}
+          />
 
           {/* Filters */}
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="relative w-64">
-                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
-                  className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }}>
-                  <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-                </svg>
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by lead name..."
-                  className="w-full pl-9 pr-3 py-2 rounded-lg text-sm"
-                  style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-                />
-              </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search by lead name..."
+              className="w-full sm:w-64"
+            />
 
-              <Select
-                value={agent}
-                onChange={(v) => { setAgent(v); setPage(1); }}
-                placeholder="Agent"
-                className="w-40"
-                options={[{ label: "All agents", value: "" }, ...agents.map((a) => ({ label: a.name, value: a.id }))]}
-              />
+            <Select
+              value={agent}
+              onChange={(v) => { setAgent(v); setPage(1); }}
+              placeholder="Agent"
+              className="w-40"
+              options={[{ label: "All agents", value: "" }, ...agents.map((a) => ({ label: a.name, value: a.id }))]}
+            />
 
-              <DatePicker value={from} onChange={(v) => { setFrom(v); setPage(1); }} placeholder="From" className="w-36" />
-              <DatePicker value={to} onChange={(v) => { setTo(v); setPage(1); }} placeholder="To" className="w-36" />
+            <DatePicker value={from} onChange={(v) => { setFrom(v); setPage(1); }} placeholder="From" className="w-36" />
+            <DatePicker value={to} onChange={(v) => { setTo(v); setPage(1); }} placeholder="To" className="w-36" />
 
-              {hasFilters && (
-                <button onClick={clearFilters} className="px-3 py-2 rounded-lg text-xs" style={{ color: "var(--text-muted)" }}>
-                  Clear
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Select
-                value={sort}
-                onChange={setSort}
-                className="w-44"
-                align="right"
-                options={[
-                  { label: "Latest first", value: "scheduledAt" },
-                  { label: "Soonest first", value: "scheduledAtAsc" },
-                  { label: "Recently created", value: "createdAt" },
-                ]}
-              />
-              <button
-                onClick={() => setShowForm(true)}
-                className="px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap"
-                style={{ background: "var(--text)", color: "var(--bg)" }}
-              >
-                + New Follow-Up
-              </button>
-            </div>
+            {hasFilters && (
+              <Button variant="ghost" onClick={clearFilters} className="text-muted-foreground">
+                Clear
+              </Button>
+            )}
           </div>
 
-          {/* Status pills */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {PILLS.map((pill) => {
-              const isActive = filter === pill.value;
-              return (
-                <button
-                  key={pill.value}
-                  onClick={() => { setFilter(pill.value); setPage(1); }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                  style={{
-                    background: isActive ? "var(--text)" : "var(--bg-subtle)",
-                    color: isActive ? "var(--bg)" : "var(--text-muted)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  {pill.label}{pill.key ? ` (${summary[pill.key]})` : ""}
-                </button>
-              );
-            })}
+          {/* Status pills, with the sort on the right */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <FilterPills
+              label="Filter by status"
+              value={filter}
+              onChange={(v) => { setFilter(v as FollowUpFilter); setPage(1); }}
+              options={PILLS.map((pill) => ({
+                label: pill.label,
+                value: pill.value,
+                count: pill.key ? summary[pill.key] : undefined,
+              }))}
+            />
+            <Select
+              value={sort}
+              onChange={setSort}
+              className="w-44"
+              align="right"
+              options={[
+                { label: "Latest first", value: "scheduledAt" },
+                { label: "Soonest first", value: "scheduledAtAsc" },
+                { label: "Recently created", value: "createdAt" },
+              ]}
+            />
           </div>
 
-          {error && (
-            <div className="px-3 py-2.5 rounded-lg text-xs" style={{
-              background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--red)",
-            }}>
-              {error}
-            </div>
-          )}
+          {error && <ErrorBanner>{error}</ErrorBanner>}
 
           {/* Table */}
-          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-            <div className="grid grid-cols-12 px-4 py-2.5 text-xs font-medium" style={{
-              background: "var(--bg-subtle)", borderBottom: "1px solid var(--border)", color: "var(--text-muted)",
-            }}>
-              <div className="col-span-3">Lead</div>
-              <div className="col-span-2">Agent</div>
-              <div className="col-span-2">Scheduled</div>
-              <div className="col-span-2">Status</div>
-              <div className="col-span-2">Mark as</div>
-              <div className="col-span-1 text-center">Move</div>
-            </div>
+          <div className="overflow-hidden rounded-xl border bg-card">
+            <Table className="min-w-[760px]">
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="px-4 text-xs">Lead</TableHead>
+                  <TableHead className="px-4 text-xs">Agent</TableHead>
+                  <TableHead className="px-4 text-xs">Scheduled</TableHead>
+                  <TableHead className="px-4 text-xs">Status</TableHead>
+                  <TableHead className="px-4 text-right text-xs">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading && <TableSkeletonRows columns={TABLE_COLUMNS} />}
 
-            {loading && <LoadingState variant="inline" />}
+                {!loading && !error && followUps.length === 0 && (
+                  <TableMessageRow colSpan={TABLE_COLUMNS}>No Follow-up</TableMessageRow>
+                )}
 
-            {!loading && !error && followUps.length === 0 && (
-              <div className="px-4 py-10 text-center text-xs" style={{ color: "var(--text-muted)" }}>
-                No Follow-up
-              </div>
+                {!loading && !error && followUps.map((f) => (
+                  <TableRow key={f.id} className="group/row">
+                    <TableCell className="max-w-[300px] px-4 py-3">
+                      <div className="flex items-start gap-3">
+                        <InitialsAvatar name={f.contactName} />
+                        <div className="min-w-0 flex-1 pt-1">
+                          <RevealOnHover primary={<span className="font-medium">{f.contactName}</span>}>
+                            <RevealLine>
+                              {f.company ?? "—"}{f.dealTitle ? ` · ${f.dealTitle}` : ""}
+                            </RevealLine>
+                            {f.notes && <RevealLine tone="faint">{f.notes}</RevealLine>}
+                          </RevealOnHover>
+                        </div>
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="max-w-[180px] truncate px-4 py-3 text-xs text-muted-foreground">
+                      {f.agentName}
+                    </TableCell>
+
+                    <TableCell className={cn("px-4 py-3 text-xs", f.isOverdue ? "text-danger" : "text-muted-foreground")}>
+                      {formatWhen(f.scheduledAt)}
+                      {f.rescheduleCount > 0 && (
+                        <div className="text-faint">
+                          moved {f.rescheduleCount}×
+                        </div>
+                      )}
+                    </TableCell>
+
+                    <TableCell className="px-4 py-3">
+                      <StatusBadge color={FOLLOW_UP_STATUS_COLOR[f.status]}>{f.status}</StatusBadge>
+                      {f.outcome && (
+                        <div className="mt-1 text-xs text-muted-foreground">{f.outcome}</div>
+                      )}
+                    </TableCell>
+
+                    <TableCell className="px-4 py-3 text-right">
+                      <RowActionsMenu label={`Actions for the follow-up with ${f.contactName}`}>
+                        {/* Outcome is offered only once a follow-up is Done — on
+                            anything else the API rejects it, so showing it would be
+                            an option that can only fail. */}
+                        {f.status === "Done" ? (
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>
+                              <ClipboardCheck aria-hidden />
+                              Set outcome
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-48">
+                              <DropdownMenuRadioGroup
+                                value={f.outcome ?? ""}
+                                onValueChange={(v) => {
+                                  // A radio item reports every pick; saving only a
+                                  // real change matches the select it replaced.
+                                  if (v !== f.outcome) patchFollowUp(f.id, { outcome: v }, "Outcome saved");
+                                }}
+                              >
+                                {FOLLOW_UP_OUTCOMES.map((o) => (
+                                  <DropdownMenuRadioItem key={o} value={o}>{o}</DropdownMenuRadioItem>
+                                ))}
+                              </DropdownMenuRadioGroup>
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                        ) : (
+                          <>
+                            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Mark as</DropdownMenuLabel>
+                            {MARK_AS.map(({ value, icon: Icon }) => (
+                              <DropdownMenuItem
+                                key={value}
+                                onSelect={() => patchFollowUp(f.id, { status: value }, `Follow-up marked ${value}`)}
+                              >
+                                <Icon aria-hidden />
+                                {value}
+                              </DropdownMenuItem>
+                            ))}
+                          </>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => openReschedule(f)}>
+                          <CalendarClock aria-hidden />
+                          Reschedule
+                        </DropdownMenuItem>
+                      </RowActionsMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            {/* Pagination */}
+            {!loading && !error && total > 0 && (
+              <PaginationFooter page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
             )}
-
-            {!loading && !error && followUps.map((f, i) => (
-              <div
-                key={f.id}
-                className="group/row grid grid-cols-12 px-4 py-3 text-sm items-center"
-                style={{ borderBottom: i < followUps.length - 1 ? "1px solid var(--border)" : "none" }}
-              >
-                <div className="col-span-3 min-w-0">
-                  <RevealOnHover primary={f.contactName}>
-                    <RevealLine>
-                      {f.company ?? "—"}{f.dealTitle ? ` · ${f.dealTitle}` : ""}
-                    </RevealLine>
-                    {f.notes && <RevealLine tone="faint">{f.notes}</RevealLine>}
-                  </RevealOnHover>
-                </div>
-
-                <div className="col-span-2 text-xs" style={{ color: "var(--text-muted)" }}>{f.agentName}</div>
-
-                <div className="col-span-2 text-xs" style={{ color: f.isOverdue ? "var(--red)" : "var(--text-muted)" }}>
-                  {formatWhen(f.scheduledAt)}
-                  {f.rescheduleCount > 0 && (
-                    <div style={{ color: "var(--text-faint)" }}>
-                      moved {f.rescheduleCount}×
-                    </div>
-                  )}
-                </div>
-
-                <div className="col-span-2">
-                  <span
-                    className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full"
-                    style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)" }}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: STATUS_COLOR[f.status] }} />
-                    <span style={{ color: "var(--text)" }}>{f.status}</span>
-                  </span>
-                  {f.outcome && (
-                    <div className="text-xs mt-1" style={{ color: "var(--text-faint)" }}>{f.outcome}</div>
-                  )}
-                </div>
-
-                <div className="col-span-2">
-                  {/* Outcome is offered only once a follow-up is Done — on
-                      anything else the API rejects it, so showing it would be
-                      an option that can only fail. */}
-                  {f.status === "Done" ? (
-                    <Select
-                      value={f.outcome ?? ""}
-                      onChange={(v) => patchFollowUp(f.id, { outcome: v }, "Outcome saved")}
-                      placeholder="Set outcome"
-                      options={FOLLOW_UP_OUTCOMES.map((o) => ({ label: o, value: o }))}
-                    />
-                  ) : (
-                    <Select
-                      value=""
-                      onChange={(v) => patchFollowUp(f.id, { status: v }, `Follow-up marked ${v}`)}
-                      placeholder="Mark as"
-                      options={[
-                        { label: "Done", value: "Done" },
-                        { label: "Missed", value: "Missed" },
-                        { label: "Cancelled", value: "Cancelled" },
-                      ]}
-                    />
-                  )}
-                </div>
-
-                <div className="col-span-1 flex justify-center">
-                  <button
-                    onClick={() => {
-                      setRescheduling(f);
-                      setNewDate("");
-                      setNewTime("09:00");
-                      setRescheduleError("");
-                    }}
-                    aria-label="Reschedule follow-up"
-                    style={{ color: "var(--text-faint)" }}
-                  >
-                    <CalendarClock size={15} strokeWidth={1.8} />
-                  </button>
-                </div>
-              </div>
-            ))}
           </div>
-
-          {/* Pagination */}
-          {!loading && !error && total > 0 && (
-            <div className="flex items-center justify-between">
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Page {page} of {totalPages} · Count: {total}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="px-3 py-1.5 rounded-lg text-xs"
-                  style={{
-                    background: "var(--bg-subtle)", border: "1px solid var(--border)",
-                    color: "var(--text)", opacity: page === 1 ? 0.4 : 1,
-                  }}
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="px-3 py-1.5 rounded-lg text-xs"
-                  style={{
-                    background: "var(--bg-subtle)", border: "1px solid var(--border)",
-                    color: "var(--text)", opacity: page === totalPages ? 0.4 : 1,
-                  }}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* New Follow-Up dialog */}
@@ -515,48 +494,34 @@ export default function FollowUpsPage() {
           description="Schedule a follow-up on a lead."
           footer={
             <>
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+              <Button variant="ghost" onClick={() => setShowForm(false)}>
                 Cancel
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={submitting}
-                className="px-4 py-2 rounded-lg text-xs font-medium"
-                style={{ background: "var(--text)", color: "var(--bg)", opacity: submitting ? 0.5 : 1 }}
-              >
+              </Button>
+              <Button onClick={handleCreate} disabled={submitting}>
                 {submitting ? "Scheduling..." : "Schedule"}
-              </button>
+              </Button>
             </>
           }
         >
-          {formError && (
-            <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
-              {formError}
-            </div>
-          )}
-          <div className="space-y-3">
-            <Select
-              value={contactId}
-              onChange={setContactId}
-              placeholder="Select lead"
-              options={contactOptions.map((c) => ({ label: c.name, value: c.id }))}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <DatePicker value={scheduledDate} onChange={setScheduledDate} placeholder="Follow-up date" />
-              <input
-                type="time"
-                value={scheduledTime}
-                onChange={(e) => setScheduledTime(e.target.value)}
-                className="px-3 py-2 rounded-lg text-sm"
-                style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
+          {formError && <ErrorBanner className="mb-4">{formError}</ErrorBanner>}
+          <div className="space-y-4">
+            <FormField label="Lead" htmlFor="new-follow-up-lead">
+              <Select
+                id="new-follow-up-lead"
+                value={contactId}
+                onChange={setContactId}
+                placeholder="Select lead"
+                options={contactOptions.map((c) => ({ label: c.name, value: c.id }))}
               />
-            </div>
-            <input
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Notes (optional)"
-              className="w-full px-3 py-2 rounded-lg text-sm"
-              style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
+            </FormField>
+            <FollowUpFields
+              idPrefix="new-follow-up"
+              date={scheduledDate}
+              onDateChange={setScheduledDate}
+              time={scheduledTime}
+              onTimeChange={setScheduledTime}
+              notes={notes}
+              onNotesChange={setNotes}
             />
           </div>
         </Dialog>
@@ -569,34 +534,25 @@ export default function FollowUpsPage() {
           description={rescheduling ? `Move the follow-up with ${rescheduling.contactName} to a new date.` : ""}
           footer={
             <>
-              <button onClick={() => setRescheduling(null)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+              <Button variant="ghost" onClick={() => setRescheduling(null)}>
                 Cancel
-              </button>
-              <button
-                onClick={handleReschedule}
-                className="px-4 py-2 rounded-lg text-xs font-medium"
-                style={{ background: "var(--text)", color: "var(--bg)" }}
-              >
+              </Button>
+              <Button onClick={handleReschedule}>
                 Reschedule
-              </button>
+              </Button>
             </>
           }
         >
-          {rescheduleError && (
-            <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
-              {rescheduleError}
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            <DatePicker value={newDate} onChange={setNewDate} placeholder="New date" />
-            <input
-              type="time"
-              value={newTime}
-              onChange={(e) => setNewTime(e.target.value)}
-              className="px-3 py-2 rounded-lg text-sm"
-              style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-            />
-          </div>
+          {rescheduleError && <ErrorBanner className="mb-4">{rescheduleError}</ErrorBanner>}
+          <FollowUpFields
+            idPrefix="reschedule"
+            date={newDate}
+            onDateChange={setNewDate}
+            time={newTime}
+            onTimeChange={setNewTime}
+            dateLabel="New date"
+            datePlaceholder="New date"
+          />
         </Dialog>
     </>
   );

@@ -565,7 +565,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
 
 ### Phase 8: Follow-ups, Contacts, Tasks
 
-- [ ] **Follow-ups:** metric strip, pills, filters, table, row actions (Mark as,
+- [x] **Follow-ups:** metric strip, pills, filters, table, row actions (Mark as,
   Set outcome, Reschedule), footer, both dialogs.
 - [ ] **Contacts:** controls, table (favourite star stays display-only),
   row action, footer, both dialogs.
