@@ -465,7 +465,7 @@ first.
   `aria-describedby` warning when there's no description.
 - [x] **ConfirmDialog** — primitive `alert-dialog`. Rebuild on AlertDialog with
   the same `useConfirm` API; `danger` uses the destructive button (**see Q5**).
-- [ ] **Toast** — hand-written `ui/sonner.tsx` (no `next-themes`; watches the
+- [x] **Toast** — hand-written `ui/sonner.tsx` (no `next-themes`; watches the
   `.dark` class with a MutationObserver; no shadows), and install `sonner@^2`.
   Rebuild `common/Toast` with the same API; `showToast` maps to
   success/error/info; 3.5 s; bottom-right; **clicking dismisses it**, kept by

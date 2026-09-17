@@ -1,17 +1,15 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
+// App-wide toast notifications, shown with Sonner. `useToast()` and
+// `showToast(message, type)` are unchanged.
+
+import { createContext, useCallback, useContext, useMemo } from "react";
+import { toast } from "sonner";
 import { CheckCircle2, XCircle, Info } from "lucide-react";
+import { Toaster } from "@/components/ui/sonner";
+import { cn } from "@/lib/utils";
 
 type ToastType = "success" | "error" | "info";
-
-interface Toast {
-  id: string;
-  message: string;
-  type: ToastType;
-}
 
 interface ToastContextValue {
   showToast: (message: string, type?: ToastType) => void;
@@ -34,74 +32,43 @@ const ICONS: Record<ToastType, typeof CheckCircle2> = {
   info: Info,
 };
 
-const ICON_COLOR: Record<ToastType, string> = {
-  success: "var(--green)",
-  error: "var(--red)",
-  info: "var(--text-muted)",
+const ICON_CLASS: Record<ToastType, string> = {
+  success: "text-success",
+  error: "text-destructive",
+  info: "text-muted-foreground",
 };
 
+// Auto-dismiss after 3.5s — long enough to read, short enough not to pile up.
+const DURATION_MS = 3500;
+
 export default function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([]);
-
-  // 🚩 Fixes a hydration mismatch: `typeof document !== "undefined"` is
-  // true immediately on the client, even during React's first hydration
-  // pass — before that pass has finished reconciling against the
-  // server-rendered HTML. That made the client's first render already
-  // differ from the server's (server never renders the portal at all),
-  // which is exactly what "error while hydrating" means. `mounted` starts
-  // false on both server AND the client's first render (useState's initial
-  // value is synchronous and identical on both), only flipping to true
-  // inside useEffect — which only runs AFTER hydration completes. Same
-  // pattern already used correctly in Dialog/Select/DatePicker; this was
-  // the one place it got missed.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
   const showToast = useCallback((message: string, type: ToastType = "success") => {
-    const id = Math.random().toString(36).slice(2);
-    setToasts((prev) => [...prev, { id, message, type }]);
-    // Auto-dismiss after 3.5s — long enough to read, short enough not to pile up
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3500);
+    const Icon = ICONS[type];
+    // Rendered as custom markup rather than Sonner's built-in toast. Sonner's
+    // own toasts have no click handler, and clicking anywhere on a toast to
+    // dismiss it is existing behaviour. Custom toasts also skip Sonner's
+    // default styling, shadow included, so the design's borders apply.
+    toast.custom(
+      (id) => (
+        <button
+          type="button"
+          onClick={() => toast.dismiss(id)}
+          className="flex w-full items-center gap-2.5 rounded-xl border bg-card px-4 py-3 text-left text-sm text-foreground"
+        >
+          <Icon size={16} strokeWidth={2} className={cn("shrink-0", ICON_CLASS[type])} aria-hidden />
+          <span>{message}</span>
+        </button>
+      ),
+      { duration: DURATION_MS }
+    );
   }, []);
 
-  const dismiss = (id: string) => setToasts((prev) => prev.filter((t) => t.id !== id));
+  const value = useMemo(() => ({ showToast }), [showToast]);
 
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={value}>
       {children}
-      {mounted &&
-        createPortal(
-          <div className="fixed bottom-5 right-5 z-[200] flex flex-col gap-2 items-end">
-            <AnimatePresence>
-              {toasts.map((t) => {
-                const Icon = ICONS[t.type];
-                return (
-                  <motion.div
-                    key={t.id}
-                    initial={{ opacity: 0, y: 12, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.12 } }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
-                    onClick={() => dismiss(t.id)}
-                    className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm cursor-pointer max-w-sm"
-                    style={{
-                      background: "var(--bg-card)",
-                      border: "1px solid var(--border)",
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
-                      color: "var(--text)",
-                    }}
-                  >
-                    <Icon size={16} strokeWidth={2} style={{ color: ICON_COLOR[t.type], flexShrink: 0 }} />
-                    <span>{t.message}</span>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>,
-          document.body
-        )}
+      <Toaster position="bottom-right" />
     </ToastContext.Provider>
   );
 }
