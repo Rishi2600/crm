@@ -557,7 +557,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
   clickable; footer.
 - [ ] **List dialogs:** Add Lead, Bulk Upload (file input, template download,
   report), Change status, Schedule follow-up.
-- [ ] **Detail:** header card; metric strip; Personal Details; Last Lead Remark;
+- [x] **Detail:** header card; metric strip; Personal Details; Last Lead Remark;
   recent activity; all five dialogs, including history and the assignment
   trail.
 - [ ] Skeletons.

@@ -16,10 +16,22 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import Select from "@/components/common/Select";
-import DatePicker from "@/components/common/DatePicker";
 import Dialog from "@/components/common/Dialog";
-import LoadingState from "@/components/common/LoadingState";
+import ErrorBanner from "@/components/common/ErrorBanner";
+import FollowUpFields from "@/components/common/FollowUpFields";
+import FormField from "@/components/common/FormField";
+import InitialsAvatar from "@/components/common/InitialsAvatar";
+import MetricStrip from "@/components/common/MetricStrip";
+import SectionCard from "@/components/common/SectionCard";
+import StatusBadge from "@/components/common/StatusBadge";
+import { LEAD_STATUS_COLOR } from "@/components/common/statusColors";
 import { useToast } from "@/components/common/Toast";
+import LeadStatusFields from "@/components/leads/LeadStatusFields";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { SUB_STATUS_BY_STATUS } from "@/lib/leads";
 import {
   LeadDetail,
@@ -30,17 +42,10 @@ import {
 } from "@/types/leads";
 import { AgentOption } from "@/types/followups";
 
-const ALL_STATUSES = Object.keys(SUB_STATUS_BY_STATUS) as LeadStatusLabel[];
 const SOURCES = ["Direct", "Referral", "Website", "Campaign", "Event", "Other"];
 const TEMPERATURES = ["Hot", "Warm", "Cold"];
 
-const STATUS_COLOR: Record<string, string> = {
-  Fresh: "#2563eb",
-  Interested: "#d97706",
-  Converted: "var(--green)",
-  Closed: "var(--red)",
-  Irrelevant: "var(--text-faint)",
-};
+const METRIC_LABELS = ["Lead Age", "Temperature", "Source Name", "Re-Enquired", "Last Follow-up", "Lead Score"];
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString("en-US", {
@@ -98,6 +103,7 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
   const [historyView, setHistoryView] = useState<"all" | "assignments" | null>(null);
 
   const token = () => localStorage.getItem("crm-token");
+  const setEditField = (key: keyof typeof edit) => (value: string) => setEdit({ ...edit, [key]: value });
 
   const fetchLead = useCallback(async () => {
     const t = token();
@@ -292,9 +298,9 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
         <button
           type="button"
           onClick={() => router.push("/leads")}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+          className="flex items-center gap-2 rounded-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          <ArrowLeft size={14} aria-hidden /> Leads
+          <ArrowLeft className="size-3.5" aria-hidden /> Leads
         </button>
       }
     />
@@ -304,7 +310,24 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
     return (
       <>
         {backToLeads}
-        <LoadingState label="Loading lead..." />
+        <div className="space-y-4" aria-busy="true" aria-label="Loading lead">
+          <Card className="flex flex-wrap items-center gap-4 p-5">
+            <Skeleton className="size-12 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-3 w-64" />
+            </div>
+          </Card>
+          <MetricStrip perRow={6} compact loading metrics={METRIC_LABELS.map((label) => ({ label, value: null }))} />
+          {[0, 1].map((i) => (
+            <Card key={i} className="space-y-4 p-5">
+              <Skeleton className="h-4 w-32" />
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {[0, 1, 2, 3].map((j) => <Skeleton key={j} className="h-9 w-full" />)}
+              </div>
+            </Card>
+          ))}
+        </div>
       </>
     );
   }
@@ -313,13 +336,11 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
     return (
       <>
         {backToLeads}
-        <div>
-          <button onClick={() => router.push("/leads")} className="text-xs flex items-center gap-1.5 mb-4" style={{ color: "var(--text-muted)" }}>
-            <ArrowLeft size={14} /> Back to Leads
-          </button>
-          <div className="px-3 py-2.5 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--red)" }}>
-            {error || "Lead not found"}
-          </div>
+        <div className="space-y-4">
+          <Button variant="ghost" size="sm" onClick={() => router.push("/leads")} className="-ml-2 text-muted-foreground">
+            <ArrowLeft aria-hidden /> Back to Leads
+          </Button>
+          <ErrorBanner>{error || "Lead not found"}</ErrorBanner>
         </div>
       </>
     );
@@ -331,59 +352,69 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
     <>
         {backToLeads}
 
-        <div className="space-y-5">
+        <div className="space-y-4">
           {/* Header */}
-          <div className="p-5 rounded-xl flex items-start justify-between gap-4 flex-wrap" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            <div className="flex items-start gap-6 flex-wrap">
-              <div>
-                <div className="text-base font-semibold" style={{ color: "var(--text)" }}>{lead.name}</div>
-                <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                  Lead Id: {lead.id}
-                </div>
-                <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  Created {formatWhen(lead.createdAt)}
+          <Card className="flex flex-wrap items-start justify-between gap-4 p-5">
+            <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
+              <div className="flex items-start gap-4">
+                <InitialsAvatar name={lead.name} className="size-12" />
+                <div className="min-w-0">
+                  <h1 className="text-lg font-semibold tracking-tight text-foreground">{lead.name}</h1>
+                  <div className="mt-0.5 break-all text-xs text-muted-foreground">
+                    Lead Id: {lead.id}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Created {formatWhen(lead.createdAt)}
+                  </div>
                 </div>
               </div>
 
-              <button onClick={openStatus} className="text-left" title="Change status">
-                <span
-                  className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full"
-                  style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)" }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: STATUS_COLOR[lead.status] }} />
-                  <span style={{ color: "var(--text)" }}>{lead.status}</span>
-                </span>
-                <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{lead.subStatus}</div>
-              </button>
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground">Status</div>
+                <button type="button" onClick={openStatus} className="rounded-md text-left" title="Change status">
+                  <StatusBadge color={LEAD_STATUS_COLOR[lead.status]}>{lead.status}</StatusBadge>
+                  <div className="mt-1 text-xs text-muted-foreground">{lead.subStatus}</div>
+                </button>
+              </div>
 
-              <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Agent
-                <div style={{ color: "var(--text)" }}>{lead.agentName}</div>
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground">Agent</div>
+                <div className="flex items-center gap-2 text-sm text-foreground">
+                  <InitialsAvatar name={lead.agentName} className="size-6" />
+                  {lead.agentName}
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-wrap items-center gap-2">
               <HeaderButton icon={RouteIcon} label="Assignment Trail" onClick={() => setHistoryView("assignments")} />
               <HeaderButton icon={History} label="History" onClick={() => setHistoryView("all")} />
               <HeaderButton icon={MessageSquarePlus} label="Add Remark" onClick={() => { setNewRemark(""); setRemarkError(""); setShowRemark(true); }} />
               <HeaderButton icon={CalendarClock} label="Follow-up" onClick={() => { setFuError(""); setShowFollowUp(true); }} />
               <HeaderButton icon={Pencil} label="Edit" onClick={openEdit} primary />
             </div>
-          </div>
+          </Card>
 
           {/* Metric strip */}
-          <div className="grid grid-cols-6 gap-3">
-            <DetailCard title="Lead Age" value={`${lead.leadAge} Days`} icon={Timer} />
-            <DetailCard title="Temperature" value={lead.temperature} icon={Gauge} />
-            <DetailCard title="Source Name" value={lead.sourceName ?? lead.source} icon={Radio} />
-            <DetailCard title="Re-Enquired" value={String(lead.reEnquiryCount)} icon={Repeat} />
-            <DetailCard title="Last Follow-up" value={lead.lastFollowUpAt ? formatWhen(lead.lastFollowUpAt) : "No Follow-up"} icon={CalendarClock} />
-            <DetailCard title="Lead Score" value={String(lead.leadScore)} icon={Gauge} />
-          </div>
+          <MetricStrip
+            perRow={6}
+            compact
+            metrics={[
+              { label: "Lead Age", value: `${lead.leadAge} Days`, icon: Timer },
+              { label: "Temperature", value: lead.temperature, icon: Gauge },
+              { label: "Source Name", value: lead.sourceName ?? lead.source, icon: Radio },
+              { label: "Re-Enquired", value: String(lead.reEnquiryCount), icon: Repeat },
+              { label: "Last Follow-up", value: lead.lastFollowUpAt ? formatWhen(lead.lastFollowUpAt) : "No Follow-up", icon: CalendarClock },
+              { label: "Lead Score", value: String(lead.leadScore), icon: Gauge },
+            ]}
+          />
 
           {/* Personal details */}
-          <Section title="Personal Details" action={<button onClick={openEdit} style={{ color: "var(--text-muted)" }}><Pencil size={14} strokeWidth={1.8} /></button>}>
-            <div className="grid grid-cols-4 gap-y-4 gap-x-6">
+          <SectionCard
+            title="Personal Details"
+            action={<IconAction icon={Pencil} label="Edit details" onClick={openEdit} />}
+          >
+            <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Name" value={lead.name} />
               <Field label="Email" value={lead.email} />
               <Field label="Phone Number" value={lead.phone} />
@@ -396,47 +427,45 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
               <Field label="Sub-Status" value={lead.subStatus} />
               <Field label="Lead Age" value={`${lead.leadAge} Days`} />
               <Field label="Next Follow-up" value={lead.nextFollowUpAt ? formatWhen(lead.nextFollowUpAt) : "Not Scheduled"} />
-            </div>
-          </Section>
+            </dl>
+          </SectionCard>
 
-          {/* Last remark */}
-          <Section
-            title="Last Lead Remark"
-            action={
-              <button onClick={() => setHistoryView("all")} style={{ color: "var(--text-muted)" }} title="View full history">
-                <History size={14} strokeWidth={1.8} />
-              </button>
-            }
-          >
-            {lead.lastRemark ? (
-              <div>
-                <div className="text-sm" style={{ color: "var(--text)" }}>{lead.lastRemark.remark}</div>
-                <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                  {lead.lastRemark.userName} · {formatWhen(lead.lastRemark.createdAt)} · {lead.lastRemark.type}
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Last remark */}
+            <SectionCard
+              title="Last Lead Remark"
+              action={<IconAction icon={History} label="View full history" onClick={() => setHistoryView("all")} />}
+            >
+              {lead.lastRemark ? (
+                <div>
+                  <div className="text-sm text-foreground">{lead.lastRemark.remark}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {lead.lastRemark.userName} · {formatWhen(lead.lastRemark.createdAt)} · {lead.lastRemark.type}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="text-sm" style={{ color: "var(--text-muted)" }}>No Remarks</div>
-            )}
-          </Section>
+              ) : (
+                <div className="text-sm text-muted-foreground">No Remarks</div>
+              )}
+            </SectionCard>
 
-          {/* Timeline — the most recent entries inline, the rest behind the
-              History button, so the page opens on what matters without
-              becoming a wall of audit rows. */}
-          <Section title="Recent Activity">
-            {lead.history.length === 0 ? (
-              <div className="text-sm" style={{ color: "var(--text-muted)" }}>Nothing recorded yet</div>
-            ) : (
-              <>
-                <Timeline entries={lead.history.slice(0, 5)} />
-                {lead.history.length > 5 && (
-                  <button onClick={() => setHistoryView("all")} className="text-xs mt-3 underline" style={{ color: "var(--text-muted)" }}>
-                    View all {lead.history.length} entries
-                  </button>
-                )}
-              </>
-            )}
-          </Section>
+            {/* Timeline — the most recent entries inline, the rest behind the
+                History button, so the page opens on what matters without
+                becoming a wall of audit rows. */}
+            <SectionCard title="Recent Activity">
+              {lead.history.length === 0 ? (
+                <div className="text-sm text-muted-foreground">Nothing recorded yet</div>
+              ) : (
+                <>
+                  <Timeline entries={lead.history.slice(0, 5)} />
+                  {lead.history.length > 5 && (
+                    <Button variant="link" onClick={() => setHistoryView("all")} className="mt-3 h-auto p-0 text-xs text-muted-foreground">
+                      View all {lead.history.length} entries
+                    </Button>
+                  )}
+                </>
+              )}
+            </SectionCard>
+          </div>
         </div>
 
         {/* ── History drawer ───────────────────────────────────────────────── */}
@@ -451,13 +480,13 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
           }
           maxWidth="560px"
           footer={
-            <button onClick={() => setHistoryView(null)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+            <Button variant="ghost" onClick={() => setHistoryView(null)}>
               Close
-            </button>
+            </Button>
           }
         >
           {historyEntries.length === 0 ? (
-            <div className="text-sm" style={{ color: "var(--text-muted)" }}>Nothing recorded yet</div>
+            <div className="text-sm text-muted-foreground">Nothing recorded yet</div>
           ) : (
             <div className="max-h-96 overflow-y-auto pr-1">
               <Timeline entries={historyEntries} />
@@ -473,39 +502,25 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
           description={`Move ${lead.name} to a new status. A remark is required.`}
           footer={
             <>
-              <button onClick={() => setShowStatus(false)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+              <Button variant="ghost" onClick={() => setShowStatus(false)}>
                 Cancel
-              </button>
-              <button
-                onClick={saveStatus}
-                disabled={statusSaving}
-                className="px-4 py-2 rounded-lg text-xs font-medium"
-                style={{ background: "var(--text)", color: "var(--bg)", opacity: statusSaving ? 0.5 : 1 }}
-              >
+              </Button>
+              <Button onClick={saveStatus} disabled={statusSaving}>
                 {statusSaving ? "Saving..." : "Save & Record"}
-              </button>
+              </Button>
             </>
           }
         >
-          {statusError && <DialogError message={statusError} />}
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <Select value={newStatus} onChange={pickStatus} options={ALL_STATUSES.map((s) => ({ label: s, value: s }))} />
-              <Select
-                value={newSubStatus}
-                onChange={(v) => setNewSubStatus(v as LeadSubStatusLabel)}
-                options={SUB_STATUS_BY_STATUS[newStatus].map((s) => ({ label: s, value: s }))}
-              />
-            </div>
-            <textarea
-              value={remark}
-              onChange={(e) => setRemark(e.target.value)}
-              placeholder="Record what happened — why is this lead moving? *"
-              rows={3}
-              className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-              style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-            />
-          </div>
+          {statusError && <ErrorBanner className="mb-4">{statusError}</ErrorBanner>}
+          <LeadStatusFields
+            idPrefix="detail-status"
+            status={newStatus}
+            onStatusChange={pickStatus}
+            subStatus={newSubStatus}
+            onSubStatusChange={setNewSubStatus}
+            remark={remark}
+            onRemarkChange={setRemark}
+          />
         </Dialog>
 
         {/* ── Edit details ─────────────────────────────────────────────────── */}
@@ -517,48 +532,69 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
           maxWidth="560px"
           footer={
             <>
-              <button onClick={() => setShowEdit(false)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+              <Button variant="ghost" onClick={() => setShowEdit(false)}>
                 Cancel
-              </button>
-              <button
-                onClick={saveEdit}
-                disabled={editSaving}
-                className="px-4 py-2 rounded-lg text-xs font-medium"
-                style={{ background: "var(--text)", color: "var(--bg)", opacity: editSaving ? 0.5 : 1 }}
-              >
+              </Button>
+              <Button onClick={saveEdit} disabled={editSaving}>
                 {editSaving ? "Saving..." : "Save Changes"}
-              </button>
+              </Button>
             </>
           }
         >
-          {editError && <DialogError message={editError} />}
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <TextInput placeholder="First name *" value={edit.firstName} onChange={(v) => setEdit({ ...edit, firstName: v })} />
-              <TextInput placeholder="Last name *" value={edit.lastName} onChange={(v) => setEdit({ ...edit, lastName: v })} />
+          {editError && <ErrorBanner className="mb-4">{editError}</ErrorBanner>}
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="First name *" htmlFor="edit-first-name">
+                <Input id="edit-first-name" value={edit.firstName} onChange={(e) => setEditField("firstName")(e.target.value)} />
+              </FormField>
+              <FormField label="Last name *" htmlFor="edit-last-name">
+                <Input id="edit-last-name" value={edit.lastName} onChange={(e) => setEditField("lastName")(e.target.value)} />
+              </FormField>
             </div>
-            <TextInput placeholder="Email *" value={edit.email} onChange={(v) => setEdit({ ...edit, email: v })} />
-            <div className="grid grid-cols-2 gap-3">
-              <TextInput placeholder="Phone" value={edit.phone} onChange={(v) => setEdit({ ...edit, phone: v })} />
-              <TextInput placeholder="Company" value={edit.companyName} onChange={(v) => setEdit({ ...edit, companyName: v })} />
+            <FormField label="Email *" htmlFor="edit-email">
+              <Input id="edit-email" value={edit.email} onChange={(e) => setEditField("email")(e.target.value)} />
+            </FormField>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Phone" htmlFor="edit-phone">
+                <Input id="edit-phone" value={edit.phone} onChange={(e) => setEditField("phone")(e.target.value)} />
+              </FormField>
+              <FormField label="Company" htmlFor="edit-company">
+                <Input id="edit-company" value={edit.companyName} onChange={(e) => setEditField("companyName")(e.target.value)} />
+              </FormField>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Select value={editSource} onChange={setEditSource} options={SOURCES.map((s) => ({ label: s, value: s }))} />
-              <TextInput placeholder="Source name" value={edit.sourceName} onChange={(v) => setEdit({ ...edit, sourceName: v })} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Source" htmlFor="edit-source">
+                <Select id="edit-source" value={editSource} onChange={setEditSource} options={SOURCES.map((s) => ({ label: s, value: s }))} />
+              </FormField>
+              <FormField label="Source name" htmlFor="edit-source-name">
+                <Input id="edit-source-name" value={edit.sourceName} onChange={(e) => setEditField("sourceName")(e.target.value)} />
+              </FormField>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <Select value={editTemperature} onChange={setEditTemperature} options={TEMPERATURES.map((s) => ({ label: s, value: s }))} />
-              <TextInput placeholder="Location" value={edit.location} onChange={(v) => setEdit({ ...edit, location: v })} />
-              <TextInput placeholder="Score 0–100" value={edit.leadScore} onChange={(v) => setEdit({ ...edit, leadScore: v.replace(/[^0-9]/g, "") })} />
+            <div className="grid gap-4 sm:grid-cols-3">
+              <FormField label="Temperature" htmlFor="edit-temperature">
+                <Select id="edit-temperature" value={editTemperature} onChange={setEditTemperature} options={TEMPERATURES.map((s) => ({ label: s, value: s }))} />
+              </FormField>
+              <FormField label="Location" htmlFor="edit-location">
+                <Input id="edit-location" value={edit.location} onChange={(e) => setEditField("location")(e.target.value)} />
+              </FormField>
+              <FormField label="Score" htmlFor="edit-score">
+                <Input
+                  id="edit-score"
+                  inputMode="numeric"
+                  placeholder="0–100"
+                  value={edit.leadScore}
+                  onChange={(e) => setEditField("leadScore")(e.target.value.replace(/[^0-9]/g, ""))}
+                />
+              </FormField>
             </div>
-            <div>
-              <div className="text-xs mb-1.5" style={{ color: "var(--text-muted)" }}>Assigned agent</div>
+            <FormField label="Assigned agent" htmlFor="edit-agent">
               <Select
+                id="edit-agent"
                 value={editAgent}
                 onChange={setEditAgent}
                 options={agents.map((a) => ({ label: a.name, value: a.id }))}
               />
-            </div>
+            </FormField>
           </div>
         </Dialog>
 
@@ -570,29 +606,26 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
           description="Leave a note on this lead's history."
           footer={
             <>
-              <button onClick={() => setShowRemark(false)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+              <Button variant="ghost" onClick={() => setShowRemark(false)}>
                 Cancel
-              </button>
-              <button
-                onClick={saveRemark}
-                disabled={remarkSaving}
-                className="px-4 py-2 rounded-lg text-xs font-medium"
-                style={{ background: "var(--text)", color: "var(--bg)", opacity: remarkSaving ? 0.5 : 1 }}
-              >
+              </Button>
+              <Button onClick={saveRemark} disabled={remarkSaving}>
                 {remarkSaving ? "Saving..." : "Add Remark"}
-              </button>
+              </Button>
             </>
           }
         >
-          {remarkError && <DialogError message={remarkError} />}
-          <textarea
-            value={newRemark}
-            onChange={(e) => setNewRemark(e.target.value)}
-            placeholder="What happened on this lead?"
-            rows={4}
-            className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-            style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-          />
+          {remarkError && <ErrorBanner className="mb-4">{remarkError}</ErrorBanner>}
+          <FormField label="Remark" htmlFor="detail-remark">
+            <Textarea
+              id="detail-remark"
+              value={newRemark}
+              onChange={(e) => setNewRemark(e.target.value)}
+              placeholder="What happened on this lead?"
+              rows={4}
+              className="resize-none"
+            />
+          </FormField>
         </Dialog>
 
         {/* ── Schedule follow-up ───────────────────────────────────────────── */}
@@ -603,34 +636,25 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
           description={`Book a follow-up with ${lead.name}.`}
           footer={
             <>
-              <button onClick={() => setShowFollowUp(false)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+              <Button variant="ghost" onClick={() => setShowFollowUp(false)}>
                 Cancel
-              </button>
-              <button
-                onClick={scheduleFollowUp}
-                disabled={fuSaving}
-                className="px-4 py-2 rounded-lg text-xs font-medium"
-                style={{ background: "var(--text)", color: "var(--bg)", opacity: fuSaving ? 0.5 : 1 }}
-              >
+              </Button>
+              <Button onClick={scheduleFollowUp} disabled={fuSaving}>
                 {fuSaving ? "Scheduling..." : "Schedule"}
-              </button>
+              </Button>
             </>
           }
         >
-          {fuError && <DialogError message={fuError} />}
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <DatePicker value={fuDate} onChange={setFuDate} placeholder="Follow-up date" />
-              <input
-                type="time"
-                value={fuTime}
-                onChange={(e) => setFuTime(e.target.value)}
-                className="px-3 py-2 rounded-lg text-sm"
-                style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-              />
-            </div>
-            <TextInput placeholder="Notes (optional)" value={fuNotes} onChange={setFuNotes} />
-          </div>
+          {fuError && <ErrorBanner className="mb-4">{fuError}</ErrorBanner>}
+          <FollowUpFields
+            idPrefix="detail-follow-up"
+            date={fuDate}
+            onDateChange={setFuDate}
+            time={fuTime}
+            onTimeChange={setFuTime}
+            notes={fuNotes}
+            onNotesChange={setFuNotes}
+          />
         </Dialog>
     </>
   );
@@ -642,107 +666,57 @@ function HeaderButton({ icon: Icon, label, onClick, primary = false }: {
   icon: typeof Pencil; label: string; onClick: () => void; primary?: boolean;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className="px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 whitespace-nowrap"
-      style={
-        primary
-          ? { background: "var(--text)", color: "var(--bg)" }
-          : { background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)" }
-      }
-    >
-      <Icon size={13} strokeWidth={1.8} />
+    <Button variant={primary ? "default" : "outline"} onClick={onClick} className="whitespace-nowrap">
+      <Icon aria-hidden />
       {label}
-    </button>
+    </Button>
   );
 }
 
-/** The metric strip's tile. Takes a STRING, unlike the shared InsightCard which
- *  is numbers-only — half of these ("The Tribune", "No Follow-up") aren't
- *  counts, so widening the shared card would have meant every KPI grid in the
- *  app carrying a case it never uses. */
-function DetailCard({ title, value, icon: Icon }: { title: string; value: string; icon: typeof Pencil }) {
+function IconAction({ icon: Icon, label, onClick }: { icon: typeof Pencil; label: string; onClick: () => void }) {
   return (
-    <div className="p-4 rounded-xl flex flex-col items-center gap-2 text-center" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-      <span className="text-xs" style={{ color: "var(--text-muted)" }}>{title}</span>
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)" }}>
-        <Icon size={16} strokeWidth={1.6} style={{ color: "var(--text-muted)" }} />
-      </div>
-      <span className="text-xs font-medium" style={{ color: "var(--text)" }}>{value}</span>
-    </div>
-  );
-}
-
-function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-sm font-medium" style={{ color: "var(--text)" }}>{title}</h2>
-        {action}
-      </div>
-      <div className="p-5 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-        {children}
-      </div>
-    </div>
+    <Button variant="ghost" size="icon" className="size-8 text-muted-foreground" onClick={onClick} aria-label={label} title={label}>
+      <Icon aria-hidden />
+    </Button>
   );
 }
 
 function Field({ label, value }: { label: string; value: string | null }) {
   return (
-    <div>
-      <div className="text-xs" style={{ color: "var(--text-muted)" }}>{label}</div>
-      <div className="text-sm mt-0.5 break-words" style={{ color: value ? "var(--text)" : "var(--text-faint)" }}>
+    <div className="min-w-0">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className={value ? "mt-0.5 break-words text-sm text-foreground" : "mt-0.5 text-sm text-faint"}>
         {value || "—"}
-      </div>
+      </dd>
     </div>
   );
 }
 
 function Timeline({ entries }: { entries: LeadHistoryEntry[] }) {
   return (
-    <div className="space-y-3">
+    <ol className="space-y-3">
       {entries.map((e) => (
-        <div key={e.id} className="flex gap-3">
-          <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: "var(--text-faint)" }} />
+        <li key={e.id} className="flex gap-3">
+          <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-faint" aria-hidden />
           <div className="min-w-0">
-            <div className="text-xs" style={{ color: "var(--text)" }}>
+            <div className="text-xs text-foreground">
               {e.type}
               {e.fromValue && e.toValue && (
-                <span style={{ color: "var(--text-muted)" }}> · {e.fromValue} → {e.toValue}</span>
+                <span className="text-muted-foreground"> · {e.fromValue} → {e.toValue}</span>
               )}
               {!e.fromValue && e.toValue && (
-                <span style={{ color: "var(--text-muted)" }}> · {e.toValue}</span>
+                <span className="text-muted-foreground"> · {e.toValue}</span>
               )}
             </div>
             {e.remark && (
-              <div className="text-xs mt-0.5 break-words" style={{ color: "var(--text-muted)" }}>&ldquo;{e.remark}&rdquo;</div>
+              <div className="mt-0.5 break-words text-xs text-muted-foreground">&ldquo;{e.remark}&rdquo;</div>
             )}
-            <div className="text-xs mt-0.5" style={{ color: "var(--text-faint)" }}>
+            <div className="mt-0.5 text-xs text-faint">
               {e.userName} · {formatWhen(e.createdAt)}
             </div>
           </div>
-        </div>
+        </li>
       ))}
-    </div>
-  );
-}
-
-function DialogError({ message }: { message: string }) {
-  return (
-    <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
-      {message}
-    </div>
-  );
-}
-
-function TextInput({ placeholder, value, onChange }: { placeholder: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <input
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="w-full px-3 py-2 rounded-lg text-sm"
-      style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-    />
+    </ol>
   );
 }

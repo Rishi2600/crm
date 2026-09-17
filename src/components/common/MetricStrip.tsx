@@ -49,10 +49,12 @@ interface MetricStripProps {
   /** Cells per row on large screens. */
   perRow?: keyof typeof PER_ROW;
   loading?: boolean;
+  /** Smaller values, for text such as dates and names rather than counts. */
+  compact?: boolean;
   className?: string;
 }
 
-export default function MetricStrip({ metrics, perRow = 4, loading = false, className }: MetricStripProps) {
+export default function MetricStrip({ metrics, perRow = 4, loading = false, compact = false, className }: MetricStripProps) {
   return (
     <Card className={cn("overflow-hidden", className)}>
       <div className="-mb-px -mr-px flex flex-wrap">
@@ -65,8 +67,13 @@ export default function MetricStrip({ metrics, perRow = 4, loading = false, clas
               <span className="truncate text-xs text-muted-foreground">{m.label}</span>
               {m.icon && <m.icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
             </div>
-            <div className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">
-              {loading ? <Skeleton className="h-8 w-20" /> : m.value}
+            <div
+              className={cn(
+                "mt-2 font-semibold tabular-nums tracking-tight",
+                compact ? "truncate text-base" : "text-2xl"
+              )}
+            >
+              {loading ? <Skeleton className={cn("w-20", compact ? "h-6" : "h-8")} /> : m.value}
             </div>
             {m.change && !loading && <ChangeLine change={m.change} />}
           </div>
