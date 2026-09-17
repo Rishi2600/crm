@@ -497,7 +497,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
   - at the bottom: a search entry and a user card (`crm-user` name, email and
     role) opening a menu with a theme toggle and **Sign out, which behaves
     exactly as today**
-- [ ] `components/layout/PageHeader.tsx`: the slot context, plus
+- [x] `components/layout/PageHeader.tsx`: the slot context, plus
   `<PageHeader title>{controls}</PageHeader>`.
 - [ ] Top bar: sidebar toggle, separator, title slot, controls slot, search
   button.
