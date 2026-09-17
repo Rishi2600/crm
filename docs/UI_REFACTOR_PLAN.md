@@ -459,7 +459,7 @@ first.
   (**hand-fixed for v3; pin `react-day-picker@^9`; remove the direct
   `date-fns` dependency**). Rebuild `common/DatePicker`: string ↔ local `Date`,
   closes on pick, keeps "Clear date", same display format, Sunday first.
-- [ ] **Dialog** — primitive `dialog`. Rebuild `common/Dialog`: same props;
+- [x] **Dialog** — primitive `dialog`. Rebuild `common/Dialog`: same props;
   `maxWidth` as an inline style (a genuinely dynamic value); X button labelled
   "Close"; scrollable body; footer; body omitted when `children` is null; no
   `aria-describedby` warning when there's no description.

@@ -1,9 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
-import { X } from "lucide-react";
+// The app's modal. Built on the shadcn/Radix Dialog, with the same props as
+// the hand-built version it replaced, so no call site changed.
+//
+// Radix provides what the old version did by hand: Escape and a click
+// outside both close it, page scrolling is locked while it is open, and it
+// renders in a portal that is safe to render on the server, so the old
+// `mounted` guard is gone. It also traps keyboard focus inside the dialog,
+// which the old one did not.
+
+import {
+  Dialog as DialogRoot,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface DialogProps {
   open: boolean;
@@ -12,7 +25,7 @@ interface DialogProps {
   description?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  maxWidth?: string; // e.g. "480px" — defaults below
+  maxWidth?: string; // e.g. "560px"
 }
 
 export default function Dialog({
@@ -24,98 +37,33 @@ export default function Dialog({
   footer,
   maxWidth = "480px",
 }: DialogProps) {
-  // Portals need `document`, which doesn't exist during SSR — only render
-  // once mounted client-side.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  return (
+    <DialogRoot open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent
+        className="w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-xl bg-card p-0 sm:rounded-xl"
+        // maxWidth varies per call site, so it stays an inline style.
+        style={{ maxWidth }}
+        // Radix warns about a dialog with no description unless told
+        // explicitly that there isn't one.
+        {...(description ? {} : { "aria-describedby": undefined })}
+      >
+        <DialogHeader className="space-y-0.5 border-b px-5 py-4 pr-12 text-left">
+          <DialogTitle className="text-sm font-medium leading-5">{title}</DialogTitle>
+          {description && (
+            <DialogDescription className="text-xs">{description}</DialogDescription>
+          )}
+        </DialogHeader>
 
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [open, onClose]);
+        {children != null && children !== false && (
+          <div className="max-h-[70vh] overflow-y-auto px-5 py-4">{children}</div>
+        )}
 
-  // Lock body scroll while open — otherwise the page scrolls behind the
-  // dialog, which feels broken on longer pages (e.g. Contacts, Tasks lists).
-  useEffect(() => {
-    if (open) {
-      const original = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => { document.body.style.overflow = original; };
-    }
-  }, [open]);
-
-  if (!mounted) return null;
-
-  return createPortal(
-    <AnimatePresence>
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="absolute inset-0"
-            style={{ background: "rgba(0,0,0,0.4)" }}
-            onClick={onClose}
-          />
-
-          {/* Card */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 8 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
-            className="relative w-full rounded-2xl overflow-hidden"
-            style={{
-              maxWidth,
-              background: "var(--bg-card)",
-              border: "1px solid var(--border)",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
-            }}
-          >
-            {/* Header */}
-            <div className="flex items-start justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
-              <div>
-                <h2 className="text-sm font-medium" style={{ color: "var(--text)" }}>{title}</h2>
-                {description && (
-                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{description}</p>
-                )}
-              </div>
-              <button
-                onClick={onClose}
-                className="p-1 rounded-md flex-shrink-0"
-                style={{ color: "var(--text-muted)" }}
-                aria-label="Close"
-              >
-                <X size={16} strokeWidth={1.8} />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className="px-5 py-4 max-h-[70vh] overflow-y-auto">
-              {children}
-            </div>
-
-            {/* Footer */}
-            {footer && (
-              <div
-                className="flex items-center justify-end gap-2 px-5 py-4"
-                style={{ borderTop: "1px solid var(--border)", background: "var(--bg-subtle)" }}
-              >
-                {footer}
-              </div>
-            )}
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>,
-    document.body
+        {footer && (
+          <DialogFooter className="gap-2 border-t bg-muted/40 px-5 py-4 sm:space-x-0">
+            {footer}
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </DialogRoot>
   );
 }
