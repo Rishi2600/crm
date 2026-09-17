@@ -2,18 +2,34 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { CalendarDays, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import Select from "@/components/common/Select";
 import DatePicker from "@/components/common/DatePicker";
 import Dialog from "@/components/common/Dialog";
-import LoadingState from "@/components/common/LoadingState";
+import ErrorBanner from "@/components/common/ErrorBanner";
+import FormField from "@/components/common/FormField";
+import InitialsAvatar from "@/components/common/InitialsAvatar";
+import SearchInput from "@/components/common/SearchInput";
+import StatusBadge from "@/components/common/StatusBadge";
+import { DEAL_STAGE_COLOR, DEAL_STATUS_COLOR, FALLBACK_STATUS_COLOR } from "@/components/common/statusColors";
 import { useToast } from "@/components/common/Toast";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatINR } from "@/lib/currency";
+import { cn } from "@/lib/utils";
 import { DealsPipelineResponse, DealCardResponse, DealStageSummary } from "@/types/deals";
 
 interface ContactOption { id: string; name: string; }
 
 const STAGES = ["Qualification", "Proposal", "Negotiation", "Closed Won"];
+
+// Stages whose column header offers a "+" that opens New Deal preset to it.
+// Closed Won has none: a deal is won by moving it there, not created there.
+const ADDABLE_STAGES = new Set(["Qualification", "Proposal", "Negotiation"]);
 
 function formatDate(iso: string | null): string {
   if (!iso) return "No date";
@@ -36,9 +52,77 @@ function computeSummary(pipeline: DealCardResponse[]): DealStageSummary[] {
   });
 }
 
+// FLAG: the pipeline endpoint returns no deal status, and it leaves LOST
+// deals out, so the badge is derived from the stage.
+function DealStatus({ stage }: { stage: string }) {
+  const status = stage === "Closed Won" ? "Won" : "Open";
+  return <StatusBadge color={DEAL_STATUS_COLOR[status]}>{status}</StatusBadge>;
+}
+
+function DealCard({ deal }: { deal: DealCardResponse }) {
+  return (
+    <>
+      <div className="flex items-start gap-2.5">
+        <InitialsAvatar name={deal.contactName} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium text-foreground">{deal.title}</div>
+          <div className="truncate text-xs text-muted-foreground">{deal.contactName}</div>
+        </div>
+        <DealStatus stage={deal.stage} />
+      </div>
+
+      <div className="mt-3 space-y-1.5">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">Probability</span>
+          <span className="font-medium tabular-nums text-foreground">{deal.probability}%</span>
+        </div>
+        <Progress value={deal.probability} className="h-1" aria-label={`Probability ${deal.probability}%`} />
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-2 border-t pt-3 text-xs">
+        <span className="flex items-center gap-1.5 text-muted-foreground">
+          <CalendarDays className="size-3.5" aria-hidden />
+          {formatDate(deal.expectedCloseDate)}
+        </span>
+        <span className="text-sm font-semibold tabular-nums text-foreground">{formatINR(deal.amount)}</span>
+      </div>
+    </>
+  );
+}
+
+function BoardSkeleton() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-busy="true" aria-label="Loading deals">
+      {STAGES.map((stage) => (
+        <div key={stage} className="min-h-[60vh] rounded-xl border bg-muted/40 p-3">
+          <div className="mb-3 space-y-2 border-b pb-3">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-4 w-16" />
+          </div>
+          <div className="space-y-2">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="space-y-3 rounded-lg border bg-card p-3">
+                <div className="flex items-center gap-2.5">
+                  <Skeleton className="size-7 rounded-full" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-3.5 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+                <Skeleton className="h-1 w-full" />
+                <Skeleton className="h-4 w-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function DealsPage() {
   const router = useRouter();
-  // 🚩 Only used for the backward-move validation message — every other
+  // FLAG: only used for the backward-move validation message — every other
   // Deals action (create, drag success, network errors) still uses the
   // inline setError banner, per the earlier decision to remove toast from
   // this page. This one case is narrow: the message needs to auto-clear
@@ -96,7 +180,7 @@ export default function DealsPage() {
 
   useEffect(() => { fetchPipeline(); }, [sort]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debounce search — 🚩 same fix as Contacts: skip this effect's mount-time
+  // Debounce search — FLAG: same fix as Contacts: skip this effect's mount-time
   // run since the effect above already fetches on initial load. Without
   // this, every page load fired two requests ~400ms apart (invisible
   // locally, visibly two loading flashes in production).
@@ -116,11 +200,16 @@ export default function DealsPage() {
     if (!token) return;
     fetch("/api/contacts?limit=100", { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        if (json) setContactOptions(json.data.map((c: any) => ({ id: c.id, name: c.name })));
+      .then((json: { data: ContactOption[] } | null) => {
+        if (json) setContactOptions(json.data.map((c) => ({ id: c.id, name: c.name })));
       })
       .catch(() => {});
   }, []);
+
+  function openFormAt(presetStage: string) {
+    setStage(presetStage);
+    setShowForm(true);
+  }
 
   async function handleCreateDeal() {
     setFormError("");
@@ -226,24 +315,17 @@ export default function DealsPage() {
           }
         />
 
-        <div>
+        <div className="space-y-4">
           {/* Controls */}
-          <div className="flex items-center justify-between mb-5">
-            <div className="relative max-w-xs w-full">
-              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
-                className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }}>
-                <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-              </svg>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search deals..."
-                className="w-full pl-9 pr-3 py-2 rounded-lg text-sm"
-                style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-              />
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search deals..."
+              className="max-w-xs"
+            />
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Select
                 value={sort}
                 onChange={(v) => setSort(v as typeof sort)}
@@ -255,13 +337,10 @@ export default function DealsPage() {
                 ]}
               />
 
-              <button
-                onClick={() => setShowForm(true)}
-                className="px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap"
-                style={{ background: "var(--text)", color: "var(--bg)" }}
-              >
-                + New Deal
-              </button>
+              <Button onClick={() => setShowForm(true)} className="whitespace-nowrap">
+                <Plus aria-hidden />
+                New Deal
+              </Button>
             </div>
           </div>
 
@@ -273,62 +352,58 @@ export default function DealsPage() {
             description="Add a new deal to the pipeline."
             footer={
               <>
-                <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+                <Button variant="ghost" onClick={() => setShowForm(false)}>
                   Cancel
-                </button>
-                <button
-                  onClick={handleCreateDeal}
-                  disabled={submitting}
-                  className="px-4 py-2 rounded-lg text-xs font-medium"
-                  style={{ background: "var(--text)", color: "var(--bg)", opacity: submitting ? 0.5 : 1 }}
-                >
+                </Button>
+                <Button onClick={handleCreateDeal} disabled={submitting}>
                   {submitting ? "Creating..." : "Create Deal"}
-                </button>
+                </Button>
               </>
             }
           >
-            {formError && (
-              <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
-                {formError}
-              </div>
-            )}
-            <div className="space-y-3">
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Deal title"
-                className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
-              <Select
-                value={contactId}
-                onChange={setContactId}
-                placeholder="Select contact"
-                options={contactOptions.map((c) => ({ label: c.name, value: c.id }))}
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount ($)" type="number" min="0"
-                  className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
+            {formError && <ErrorBanner className="mb-4">{formError}</ErrorBanner>}
+            <div className="space-y-4">
+              <FormField label="Title" htmlFor="deal-title">
+                <Input id="deal-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Deal title" />
+              </FormField>
+              <FormField label="Contact" htmlFor="deal-contact">
                 <Select
-                  value={stage}
-                  onChange={setStage}
-                  options={STAGES.map((s) => ({ label: s, value: s }))}
+                  id="deal-contact"
+                  value={contactId}
+                  onChange={setContactId}
+                  placeholder="Select contact"
+                  options={contactOptions.map((c) => ({ label: c.name, value: c.id }))}
                 />
+              </FormField>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* FLAG: the "$" placeholder is a known issue (PROJECT_CONTEXT §17), left as is. */}
+                <FormField label="Amount" htmlFor="deal-amount">
+                  <Input id="deal-amount" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount ($)" type="number" min="0" />
+                </FormField>
+                <FormField label="Stage" htmlFor="deal-stage">
+                  <Select
+                    id="deal-stage"
+                    value={stage}
+                    onChange={setStage}
+                    options={STAGES.map((s) => ({ label: s, value: s }))}
+                  />
+                </FormField>
               </div>
-              <DatePicker value={expectedCloseDate} onChange={setExpectedCloseDate} placeholder="Expected close date" />
+              <FormField label="Expected close date" htmlFor="deal-close-date">
+                <DatePicker id="deal-close-date" value={expectedCloseDate} onChange={setExpectedCloseDate} placeholder="Expected close date" />
+              </FormField>
             </div>
           </Dialog>
 
           {/* Error */}
-          {error && (
-            <div className="mb-4 px-3 py-2.5 rounded-lg text-xs" style={{
-              background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--red)",
-            }}>
-              {error}
-            </div>
-          )}
+          {error && <ErrorBanner>{error}</ErrorBanner>}
 
           {/* Loading */}
-          {loading && <LoadingState />}
+          {loading && <BoardSkeleton />}
 
           {/* Kanban board */}
           {!loading && (
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {STAGES.map((stage) => {
                 const stageDeals = dealsByStage(stage);
                 const stageSummary = summaryFor(stage);
@@ -344,8 +419,9 @@ export default function DealsPage() {
                 const isValidTarget = !draggedDeal || STAGES.indexOf(stage) >= STAGES.indexOf(draggedDeal.stage);
 
                 return (
-                  <div
+                  <section
                     key={stage}
+                    aria-label={stage}
                     onDragOver={(e) => { e.preventDefault(); if (isValidTarget) setDragOverStage(stage); }}
                     onDragLeave={() => setDragOverStage(null)}
                     onDrop={(e) => {
@@ -357,23 +433,40 @@ export default function DealsPage() {
                       }
                       handleDrop(stage);
                     }}
-                    className="rounded-xl p-3 transition-colors"
-                    style={{
-                      background: isDragOver ? "var(--bg-subtle)" : "transparent",
-                      border: `1px solid ${isDragOver ? "var(--text-muted)" : "var(--border)"}`,
-                      minHeight: "60vh",
-                      opacity: draggedId && !isValidTarget ? 0.5 : 1,
-                    }}
+                    className={cn(
+                      "min-h-[60vh] min-w-0 rounded-xl border p-3 transition-[background-color,border-color,opacity]",
+                      isDragOver ? "border-muted-foreground bg-muted" : "bg-muted/40",
+                      draggedId && !isValidTarget && "opacity-50"
+                    )}
                   >
                     {/* Column header */}
-                    <div className="mb-3 pb-3" style={{ borderBottom: "1px solid var(--border)" }}>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium" style={{ color: "var(--text)" }}>{stage}</span>
-                        <span className="text-xs tabular-nums" style={{ color: "var(--text-muted)" }}>
-                          {stageSummary?.count ?? 0}
-                        </span>
+                    <div className="mb-3 border-b pb-3">
+                      {/* min-h keeps Closed Won, which has no "+", level with the rest. */}
+                      <div className="flex min-h-7 items-center justify-between gap-2">
+                        <h2 className="flex min-w-0 items-center gap-2 text-xs font-medium text-foreground">
+                          <span
+                            className="size-2 shrink-0 rounded-full"
+                            style={{ background: DEAL_STAGE_COLOR[stage] ?? FALLBACK_STATUS_COLOR }}
+                            aria-hidden
+                          />
+                          <span className="truncate">{stage}</span>
+                          <Badge variant="secondary" className="px-1.5 py-0 font-medium tabular-nums">
+                            {stageSummary?.count ?? 0}
+                          </Badge>
+                        </h2>
+                        {ADDABLE_STAGES.has(stage) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 text-muted-foreground"
+                            onClick={() => openFormAt(stage)}
+                            aria-label={`New deal in ${stage}`}
+                          >
+                            <Plus aria-hidden />
+                          </Button>
+                        )}
                       </div>
-                      <div className="text-sm font-semibold mt-1" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
+                      <div className="mt-1 text-sm font-semibold tracking-tight text-foreground">
                         {formatINR(stageSummary?.totalAmount ?? 0)}
                       </div>
                     </div>
@@ -381,7 +474,7 @@ export default function DealsPage() {
                     {/* Cards */}
                     <div className="space-y-2">
                       {stageDeals.length === 0 && (
-                        <div className="text-xs text-center py-6" style={{ color: "var(--text-faint)" }}>
+                        <div className="py-6 text-center text-xs text-faint">
                           No deals
                         </div>
                       )}
@@ -392,38 +485,16 @@ export default function DealsPage() {
                           draggable
                           onDragStart={() => setDraggedId(deal.id)}
                           onDragEnd={() => setDraggedId(null)}
-                          className="p-3 rounded-lg cursor-grab active:cursor-grabbing transition-opacity"
-                          style={{
-                            background: "var(--bg-card)",
-                            border: "1px solid var(--border)",
-                            opacity: updatingId === deal.id ? 0.5 : draggedId === deal.id ? 0.3 : 1,
-                          }}
+                          className={cn(
+                            "cursor-grab rounded-lg border bg-card p-3 transition-opacity active:cursor-grabbing",
+                            updatingId === deal.id ? "opacity-50" : draggedId === deal.id && "opacity-30"
+                          )}
                         >
-                          <div className="text-sm font-medium mb-1" style={{ color: "var(--text)" }}>
-                            {deal.title}
-                          </div>
-                          <div className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
-                            {deal.contactName}
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold tabular-nums" style={{ color: "var(--text)" }}>
-                              {formatINR(deal.amount)}
-                            </span>
-                            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                              {formatDate(deal.expectedCloseDate)}
-                            </span>
-                          </div>
-                          {/* Probability bar */}
-                          <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                            <div
-                              className="h-full rounded-full"
-                              style={{ width: `${deal.probability}%`, background: "var(--text)" }}
-                            />
-                          </div>
+                          <DealCard deal={deal} />
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </section>
                 );
               })}
             </div>

@@ -535,18 +535,18 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
 - [ ] `MetricCard` and `InsightCard` → the metric-strip cell component, or
   deleted if unused.
 - [x] Skeletons in the final shape for each block.
-- [ ] Verify, then report.
+- [x] Verify, then report.
 
 ### Phase 6: Deals
 
-- [ ] Kanban columns (dot, name, count, total, add button per Q2) and cards
+- [x] Kanban columns (dot, name, count, total, add button per Q2) and cards
   (avatar, title, subtitle, probability bar, date and amount rows, status badge
   from stage).
-- [ ] Drag and drop, and the backward-move error toast, **unchanged**.
-- [ ] Controls: search and sort; New Deal dialog converted to `input`, `label`
+- [x] Drag and drop, and the backward-move error toast, **unchanged**.
+- [x] Controls: search and sort; New Deal dialog converted to `input`, `label`
   and `button` (the "Amount ($)" placeholder stays — §17 #23).
-- [ ] Skeleton columns.
-- [ ] Verify, then report.
+- [x] Skeleton columns.
+- [x] Verify, then report.
 
 ### Phase 7: Leads
 
