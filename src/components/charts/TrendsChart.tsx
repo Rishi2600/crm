@@ -1,15 +1,10 @@
 "use client";
 
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 import Select from "@/components/common/Select";
+import SectionCard from "@/components/common/SectionCard";
+import ErrorBanner from "@/components/common/ErrorBanner";
+import AreaTrendChart from "@/components/charts/AreaTrendChart";
+import { cn } from "@/lib/utils";
 import { TrendGranularity, TrendMetric, TrendPoint } from "@/types/insights";
 
 const METRIC_OPTIONS: { label: string; value: TrendMetric }[] = [
@@ -29,19 +24,6 @@ const METRIC_AXIS_LABEL: Record<TrendMetric, string> = {
   followUps: "No. of Follow-Ups",
   deals: "No. of Deals",
 };
-
-function Tip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div
-      className="px-3 py-2 rounded-lg text-xs"
-      style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text)" }}
-    >
-      <div style={{ color: "var(--text-muted)" }} className="mb-0.5">{label}</div>
-      <div className="font-semibold tabular-nums">{payload[0].value.toLocaleString()}</div>
-    </div>
-  );
-}
 
 interface TrendsChartProps {
   points: TrendPoint[];
@@ -68,21 +50,14 @@ export default function TrendsChart({
   const tickInterval = Math.max(0, Math.ceil(points.length / 12) - 1);
 
   const hasData = points.some((p) => p.value > 0);
+  const metricLabel = METRIC_OPTIONS.find((m) => m.value === metric)?.label ?? "";
 
   return (
-    <div
-      className="p-5 rounded-xl"
-      style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
-    >
-      <div className="flex items-center justify-between mb-5 gap-3">
-        <div>
-          <h3 className="text-sm font-medium" style={{ color: "var(--text)" }}>Trends</h3>
-          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-            {METRIC_OPTIONS.find((m) => m.value === metric)?.label} over time
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
+    <SectionCard
+      title="Trends"
+      description={`${metricLabel} over time`}
+      action={
+        <>
           <Select
             value={metric}
             onChange={(v) => onMetricChange(v as TrendMetric)}
@@ -97,53 +72,32 @@ export default function TrendsChart({
             className="w-32"
             align="right"
           />
-        </div>
-      </div>
-
-      {error && (
-        <div className="py-16 text-center text-xs" style={{ color: "var(--red)" }}>{error}</div>
-      )}
+        </>
+      }
+    >
+      {error && <ErrorBanner className="my-12 text-center">{error}</ErrorBanner>}
 
       {!error && (
-        <div style={{ opacity: loading ? 0.4 : 1, transition: "opacity 0.15s ease" }}>
+        <div className={cn("transition-opacity duration-150", loading && "opacity-40")}>
           {/* An all-zero series still renders — an empty stretch of calendar is
               a real answer, and blanking the chart would hide the axis that
               says which stretch it was. */}
           {!hasData && !loading && (
-            <div className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
-              No activity in this period
-            </div>
+            <p className="mb-2 text-xs text-muted-foreground">No activity in this period</p>
           )}
 
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={points} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="2 4" stroke="var(--border)" vertical={false} />
-              <XAxis
-                dataKey="label"
-                tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                interval={tickInterval}
-              />
-              <YAxis
-                allowDecimals={false}
-                tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                width={52}
-                label={{
-                  value: METRIC_AXIS_LABEL[metric],
-                  angle: -90,
-                  position: "insideLeft",
-                  style: { fill: "var(--text-muted)", fontSize: 11, textAnchor: "middle" },
-                }}
-              />
-              <Tooltip content={<Tip />} cursor={{ fill: "var(--bg-subtle)" }} />
-              <Bar dataKey="value" fill="var(--text)" opacity={0.85} radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <AreaTrendChart
+            data={points}
+            xKey="label"
+            yKey="value"
+            seriesLabel={metricLabel}
+            height={280}
+            xInterval={tickInterval}
+            allowDecimals={false}
+            yAxisLabel={METRIC_AXIS_LABEL[metric]}
+          />
         </div>
       )}
-    </div>
+    </SectionCard>
   );
 }

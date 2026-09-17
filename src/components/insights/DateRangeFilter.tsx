@@ -95,7 +95,7 @@ export default function DateRangeFilter({
   onCustomChange,
 }: DateRangeFilterProps) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {preset === "custom" && (
         <>
           <DatePicker
@@ -104,7 +104,7 @@ export default function DateRangeFilter({
             placeholder="From"
             className="w-36"
           />
-          <span className="text-xs" style={{ color: "var(--text-muted)" }}>to</span>
+          <span className="text-xs text-muted-foreground">to</span>
           <DatePicker
             value={custom.to}
             onChange={(to) => onCustomChange({ ...custom, to })}

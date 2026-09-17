@@ -23,7 +23,8 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import InsightCard from "@/components/insights/InsightCard";
+import MetricStrip from "@/components/common/MetricStrip";
+import ErrorBanner from "@/components/common/ErrorBanner";
 import DateRangeFilter, { resolveRange } from "@/components/insights/DateRangeFilter";
 import TrendsChart from "@/components/charts/TrendsChart";
 import {
@@ -97,7 +98,7 @@ export default function InsightsPanel({ tab }: InsightsPanelProps) {
   const [trendLoading, setTrendLoading] = useState(true);
   const [trendError, setTrendError] = useState("");
 
-  // 🚩 Synced DURING render rather than in an effect. React discards this
+  // FLAG: synced DURING render rather than in an effect. React discards this
   // intermediate render and re-runs immediately with the new metric, so the
   // fetch effects below fire exactly once per tab switch. Doing it in a
   // useEffect instead would render once with the stale metric first, firing a
@@ -184,46 +185,36 @@ export default function InsightsPanel({ tab }: InsightsPanelProps) {
       : FOLLOW_UP_CARDS.map((c) => ({ ...c, value: (kpis as FollowUpInsightKpis | null)?.[c.key] ?? 0 }));
 
   return (
-    <div className="space-y-6">
-      {/* Performance overview — KPI cards */}
-      <div className="p-5 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-        <div className="flex items-center justify-between mb-5 gap-3">
-          <div>
-            <h3 className="text-sm font-medium" style={{ color: "var(--text)" }}>Performance Overview</h3>
-            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-              {tab === "lead" ? "Lead Insights" : "Follow-Up Insights"}
-            </p>
-          </div>
-
-          <DateRangeFilter
-            preset={preset}
-            onPresetChange={setPreset}
-            custom={custom}
-            onCustomChange={setCustom}
-          />
+    <div className="space-y-4">
+      {/* Performance overview — KPI strip */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-1">
+          <h2 className="text-sm font-medium leading-5">Performance Overview</h2>
+          <p className="text-xs text-muted-foreground">
+            {tab === "lead" ? "Lead Insights" : "Follow-Up Insights"}
+          </p>
         </div>
 
-        {kpisError && (
-          <div className="mb-4 px-3 py-2.5 rounded-lg text-xs" style={{
-            background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--red)",
-          }}>
-            {kpisError}
-          </div>
-        )}
-
-        {/* Both tabs now carry 9 cards — 5 + 4 across two rows. */}
-        <div className="grid gap-3 grid-cols-5">
-          {cards.map((card) => (
-            <InsightCard
-              key={card.key}
-              title={card.title}
-              value={card.value}
-              icon={card.icon}
-              loading={kpisLoading}
-            />
-          ))}
-        </div>
+        <DateRangeFilter
+          preset={preset}
+          onPresetChange={setPreset}
+          custom={custom}
+          onCustomChange={setCustom}
+        />
       </div>
+
+      {kpisError && <ErrorBanner>{kpisError}</ErrorBanner>}
+
+      {/* Both tabs carry 9 cells — 5 + 4 across two rows on wide screens. */}
+      <MetricStrip
+        perRow={5}
+        loading={kpisLoading}
+        metrics={cards.map((card) => ({
+          label: card.title,
+          value: card.value.toLocaleString(),
+          icon: card.icon,
+        }))}
+      />
 
       {/* Trends graph */}
       <TrendsChart

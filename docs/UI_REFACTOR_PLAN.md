@@ -528,9 +528,9 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
 - [ ] Deals-per-month bars → the Chart component.
 - [x] `PipelineChart` → thin progress bars.
 - [x] `ActivityFeed` → card.
-- [ ] `InsightsPanel` metric strips for the 9-tile tabs; one card, with cells
+- [x] `InsightsPanel` metric strips for the 9-tile tabs; one card, with cells
   wrapping over two rows.
-- [ ] `DateRangeFilter`, and `TrendsChart` → area chart (previous-period line
+- [x] `DateRangeFilter`, and `TrendsChart` → area chart (previous-period line
   only if Q3 is approved).
 - [ ] `MetricCard` and `InsightCard` → the metric-strip cell component, or
   deleted if unused.
