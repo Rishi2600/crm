@@ -524,7 +524,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
 - [x] `InsightsTabs` → shadcn `tabs`, keeping the same values and lazy Deal
   fetch.
 - [ ] Deal Insights metric strip (change line on Total Revenue only).
-- [ ] `RevenueChart` → gradient area chart using `ChartContainer`.
+- [x] `RevenueChart` → gradient area chart using `ChartContainer`.
 - [ ] Deals-per-month bars → the Chart component.
 - [ ] `PipelineChart` → thin progress bars.
 - [ ] `ActivityFeed` → card.
