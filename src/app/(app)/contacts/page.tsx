@@ -2,22 +2,29 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, Plus, Star } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import Select from "@/components/common/Select";
-import DatePicker from "@/components/common/DatePicker";
 import Dialog from "@/components/common/Dialog";
-import LoadingState from "@/components/common/LoadingState";
+import ErrorBanner from "@/components/common/ErrorBanner";
+import FollowUpFields from "@/components/common/FollowUpFields";
+import FormField from "@/components/common/FormField";
+import InitialsAvatar from "@/components/common/InitialsAvatar";
+import PaginationFooter from "@/components/common/PaginationFooter";
 import RevealOnHover, { RevealLine } from "@/components/common/RevealOnHover";
+import SearchInput from "@/components/common/SearchInput";
+import StatusBadge from "@/components/common/StatusBadge";
+import { TableMessageRow, TableSkeletonRows } from "@/components/common/TableStates";
+import { TEMPERATURE_COLOR } from "@/components/common/statusColors";
 import { useToast } from "@/components/common/Toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import { formatINR } from "@/lib/currency";
 import { ContactsApiResponse, ContactResponse } from "@/types/contacts";
 
-const STATUS_COLOR: Record<string, string> = {
-  Hot: "var(--red)",
-  Warm: "#d97706",
-  Cold: "var(--text-muted)",
-};
+const TABLE_COLUMNS = 7;
 
 export default function ContactsPage() {
   const router = useRouter();
@@ -91,7 +98,7 @@ export default function ContactsPage() {
   useEffect(() => { fetchContacts(); }, [page, sort]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounce search — refetch 400ms after user stops typing.
-  // 🚩 Previously this fired unconditionally on mount too (React runs every
+  // FLAG: previously this fired unconditionally on mount too (React runs every
   // effect at least once after the first render, regardless of dependency
   // values), causing a genuine SECOND fetch ~400ms after the first one on
   // every page load — not a dev/prod difference, a real duplicate request
@@ -198,47 +205,34 @@ export default function ContactsPage() {
               Contacts {total > 0 && <span className="text-muted-foreground">· {total}</span>}
             </span>
           }
-        />
+        >
+          <Button size="sm" onClick={() => setShowForm(true)} aria-label="New Contact">
+            <Plus aria-hidden />
+            <span className="hidden sm:inline">New Contact</span>
+          </Button>
+        </PageHeader>
 
-        <div>
+        <div className="space-y-4">
           {/* Controls */}
-          <div className="flex items-center justify-between mb-5">
-            {/* Search */}
-            <div className="relative max-w-xs w-full">
-              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
-                className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }}>
-                <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-              </svg>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search contacts..."
-                className="w-full pl-9 pr-3 py-2 rounded-lg text-sm"
-                style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-              />
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search contacts..."
+              className="max-w-xs"
+            />
 
-            <div className="flex items-center gap-3">
-              {/* Sort */}
-              <Select
-                value={sort}
-                onChange={(v) => { setSort(v as typeof sort); setPage(1); }}
-                className="w-40"
-                options={[
-                  { label: "Newest", value: "createdAt" },
-                  { label: "Name", value: "name" },
-                  { label: "Deal Value", value: "dealValue" },
-                ]}
-              />
-
-              <button
-                onClick={() => setShowForm(true)}
-                className="px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap"
-                style={{ background: "var(--text)", color: "var(--bg)" }}
-              >
-                + New Contact
-              </button>
-            </div>
+            <Select
+              value={sort}
+              onChange={(v) => { setSort(v as typeof sort); setPage(1); }}
+              className="w-40"
+              align="right"
+              options={[
+                { label: "Newest", value: "createdAt" },
+                { label: "Name", value: "name" },
+                { label: "Deal Value", value: "dealValue" },
+              ]}
+            />
           </div>
 
           {/* Create Contact dialog — same reusable Dialog used for Tasks */}
@@ -249,164 +243,141 @@ export default function ContactsPage() {
             description="Add a new contact to the CRM."
             footer={
               <>
-                <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+                <Button variant="ghost" onClick={() => setShowForm(false)}>
                   Cancel
-                </button>
-                <button
-                  onClick={handleCreateContact}
-                  disabled={submitting}
-                  className="px-4 py-2 rounded-lg text-xs font-medium"
-                  style={{ background: "var(--text)", color: "var(--bg)", opacity: submitting ? 0.5 : 1 }}
-                >
+                </Button>
+                <Button onClick={handleCreateContact} disabled={submitting}>
                   {submitting ? "Creating..." : "Create Contact"}
-                </button>
+                </Button>
               </>
             }
           >
-            {formError && (
-              <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
-                {formError}
+            {formError && <ErrorBanner className="mb-4">{formError}</ErrorBanner>}
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="First name" htmlFor="contact-first-name">
+                  <Input id="contact-first-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                </FormField>
+                <FormField label="Last name" htmlFor="contact-last-name">
+                  <Input id="contact-last-name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                </FormField>
               </div>
-            )}
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name"
-                  className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
-                <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name"
-                  className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
+              <FormField label="Email" htmlFor="contact-email">
+                <Input id="contact-email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
+              </FormField>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Phone" htmlFor="contact-phone">
+                  <Input id="contact-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Optional" />
+                </FormField>
+                <FormField label="Location" htmlFor="contact-location">
+                  <Input id="contact-location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Optional" />
+                </FormField>
               </div>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email"
-                className="w-full px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
-              <div className="grid grid-cols-2 gap-3">
-                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone (optional)"
-                  className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
-                <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (optional)"
-                  className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Company (optional)"
-                  className="px-3 py-2 rounded-lg text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }} />
-                <Select
-                  value={leadStatus}
-                  onChange={setLeadStatus}
-                  options={[
-                    { label: "Hot", value: "Hot" },
-                    { label: "Warm", value: "Warm" },
-                    { label: "Cold", value: "Cold" },
-                  ]}
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Company" htmlFor="contact-company">
+                  <Input id="contact-company" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Optional" />
+                </FormField>
+                <FormField label="Temperature" htmlFor="contact-temperature">
+                  <Select
+                    id="contact-temperature"
+                    value={leadStatus}
+                    onChange={setLeadStatus}
+                    options={[
+                      { label: "Hot", value: "Hot" },
+                      { label: "Warm", value: "Warm" },
+                      { label: "Cold", value: "Cold" },
+                    ]}
+                  />
+                </FormField>
               </div>
             </div>
           </Dialog>
 
+          {error && <ErrorBanner>{error}</ErrorBanner>}
+
           {/* Table */}
-          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-            {/* Header row */}
-            <div className="grid grid-cols-12 px-4 py-2.5 text-xs font-medium" style={{
-              background: "var(--bg-subtle)", borderBottom: "1px solid var(--border)", color: "var(--text-muted)",
-            }}>
-              <div className="col-span-3">Name</div>
-              <div className="col-span-2">Company</div>
-              <div className="col-span-2">Location</div>
-              <div className="col-span-2 text-right">Deal Value</div>
-              <div className="col-span-2">Status</div>
-              <div className="col-span-1 text-center">★</div>
-            </div>
+          <div className="overflow-hidden rounded-xl border bg-card">
+            <Table className="min-w-[820px]">
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="px-4 text-xs">Name</TableHead>
+                  <TableHead className="px-4 text-xs">Company</TableHead>
+                  <TableHead className="px-4 text-xs">Location</TableHead>
+                  <TableHead className="px-4 text-right text-xs">Deal Value</TableHead>
+                  <TableHead className="px-4 text-xs">Status</TableHead>
+                  <TableHead className="px-4 text-center text-xs">
+                    <Star className="mx-auto size-3.5" aria-hidden />
+                    <span className="sr-only">Favourite</span>
+                  </TableHead>
+                  <TableHead className="px-4 text-right text-xs">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading && <TableSkeletonRows columns={TABLE_COLUMNS} rows={10} />}
 
-            {/* Loading */}
-            {loading && <LoadingState variant="inline" />}
+                {!loading && !error && contacts.length === 0 && (
+                  <TableMessageRow colSpan={TABLE_COLUMNS}>No Contacts Found</TableMessageRow>
+                )}
 
-            {/* Error */}
-            {!loading && error && (
-              <div className="px-4 py-10 text-center text-xs" style={{ color: "var(--red)" }}>
-                {error}
-              </div>
+                {!loading && !error && contacts.map((c) => (
+                  <TableRow key={c.id} className="group/row">
+                    <TableCell className="max-w-[280px] px-4 py-3">
+                      <div className="flex items-start gap-3">
+                        <InitialsAvatar name={c.name} />
+                        <div className="min-w-0 flex-1 pt-1">
+                          <RevealOnHover primary={<span className="font-medium">{c.name}</span>}>
+                            <RevealLine>{c.email}</RevealLine>
+                          </RevealOnHover>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-[180px] truncate px-4 py-3 text-xs text-muted-foreground">
+                      {c.company ?? "—"}
+                    </TableCell>
+                    <TableCell className="max-w-[160px] truncate px-4 py-3 text-xs text-muted-foreground">
+                      {c.location ?? "—"}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-right font-medium tabular-nums text-foreground">
+                      {formatINR(c.dealValue)}
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
+                      <StatusBadge color={TEMPERATURE_COLOR[c.status]}>{c.status}</StatusBadge>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-center">
+                      {/* Display only — there is no endpoint to change it. */}
+                      <Star
+                        role="img"
+                        aria-label={c.isFavourite ? "Favourite" : "Not a favourite"}
+                        className={cn(
+                          "mx-auto size-4",
+                          c.isFavourite ? "fill-amber-500 text-amber-500" : "text-faint"
+                        )}
+                      />
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-muted-foreground"
+                        onClick={() => openFollowUp(c)}
+                        aria-label={`Schedule follow-up with ${c.name}`}
+                        title="Schedule follow-up"
+                      >
+                        <CalendarClock aria-hidden />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            {/* Pagination */}
+            {!loading && !error && total > 0 && (
+              <PaginationFooter page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
             )}
-
-            {/* Empty state */}
-            {!loading && !error && contacts.length === 0 && (
-              <div className="px-4 py-10 text-center text-xs" style={{ color: "var(--text-muted)" }}>
-                No Contacts Found
-              </div>
-            )}
-
-            {/* Rows */}
-            {!loading && !error && contacts.map((c, i) => (
-              <div
-                key={c.id}
-                className="group/row grid grid-cols-12 px-4 py-3 text-sm items-center"
-                style={{ borderBottom: i < contacts.length - 1 ? "1px solid var(--border)" : "none" }}
-              >
-                <div className="col-span-3 min-w-0">
-                  <RevealOnHover primary={c.name}>
-                    <RevealLine>{c.email}</RevealLine>
-                  </RevealOnHover>
-                </div>
-                <div className="col-span-2 text-xs" style={{ color: "var(--text-muted)" }}>
-                  {c.company ?? "—"}
-                </div>
-                <div className="col-span-2 text-xs" style={{ color: "var(--text-muted)" }}>
-                  {c.location ?? "—"}
-                </div>
-                <div className="col-span-2 text-right text-sm font-medium tabular-nums" style={{ color: "var(--text)" }}>
-                  {formatINR(c.dealValue)}
-                </div>
-                <div className="col-span-2">
-                  <span
-                    className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full"
-                    style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)" }}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: STATUS_COLOR[c.status] }} />
-                    <span style={{ color: "var(--text)" }}>{c.status}</span>
-                  </span>
-                </div>
-                <div className="col-span-1 flex items-center justify-center gap-2">
-                  <span style={{ color: c.isFavourite ? "#d97706" : "var(--text-faint)" }}>★</span>
-                  <button
-                    onClick={() => openFollowUp(c)}
-                    aria-label={`Schedule follow-up with ${c.name}`}
-                    title="Schedule follow-up"
-                    style={{ color: "var(--text-faint)" }}
-                  >
-                    <CalendarClock size={14} strokeWidth={1.8} />
-                  </button>
-                </div>
-              </div>
-            ))}
           </div>
-
-          {/* Pagination */}
-          {!loading && !error && total > 0 && (
-            <div className="flex items-center justify-between mt-4">
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Page {page} of {totalPages}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="px-3 py-1.5 rounded-lg text-xs"
-                  style={{
-                    background: "var(--bg-subtle)", border: "1px solid var(--border)",
-                    color: "var(--text)", opacity: page === 1 ? 0.4 : 1,
-                  }}
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="px-3 py-1.5 rounded-lg text-xs"
-                  style={{
-                    background: "var(--bg-subtle)", border: "1px solid var(--border)",
-                    color: "var(--text)", opacity: page === totalPages ? 0.4 : 1,
-                  }}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Schedule follow-up on a lead */}
@@ -417,44 +388,25 @@ export default function ContactsPage() {
           description={followUpFor ? `Set a follow-up with ${followUpFor.name}.` : ""}
           footer={
             <>
-              <button onClick={() => setFollowUpFor(null)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+              <Button variant="ghost" onClick={() => setFollowUpFor(null)}>
                 Cancel
-              </button>
-              <button
-                onClick={handleScheduleFollowUp}
-                disabled={fuSubmitting}
-                className="px-4 py-2 rounded-lg text-xs font-medium"
-                style={{ background: "var(--text)", color: "var(--bg)", opacity: fuSubmitting ? 0.5 : 1 }}
-              >
+              </Button>
+              <Button onClick={handleScheduleFollowUp} disabled={fuSubmitting}>
                 {fuSubmitting ? "Scheduling..." : "Schedule"}
-              </button>
+              </Button>
             </>
           }
         >
-          {fuError && (
-            <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
-              {fuError}
-            </div>
-          )}
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <DatePicker value={fuDate} onChange={setFuDate} placeholder="Follow-up date" />
-              <input
-                type="time"
-                value={fuTime}
-                onChange={(e) => setFuTime(e.target.value)}
-                className="px-3 py-2 rounded-lg text-sm"
-                style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-              />
-            </div>
-            <input
-              value={fuNotes}
-              onChange={(e) => setFuNotes(e.target.value)}
-              placeholder="Notes (optional)"
-              className="w-full px-3 py-2 rounded-lg text-sm"
-              style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-            />
-          </div>
+          {fuError && <ErrorBanner className="mb-4">{fuError}</ErrorBanner>}
+          <FollowUpFields
+            idPrefix="contact-follow-up"
+            date={fuDate}
+            onDateChange={setFuDate}
+            time={fuTime}
+            onTimeChange={setFuTime}
+            notes={fuNotes}
+            onNotesChange={setFuNotes}
+          />
         </Dialog>
     </>
   );

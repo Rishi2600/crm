@@ -567,7 +567,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
 
 - [x] **Follow-ups:** metric strip, pills, filters, table, row actions (Mark as,
   Set outcome, Reschedule), footer, both dialogs.
-- [ ] **Contacts:** controls, table (favourite star stays display-only),
+- [x] **Contacts:** controls, table (favourite star stays display-only),
   row action, footer, both dialogs.
 - [ ] **Tasks:** filter tabs, table, status select, delete with confirm, count
   footer, New Task dialog (including meeting fields).
