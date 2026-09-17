@@ -574,7 +574,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
   the API accepts them, but adding them would be a new feature, so none were
   added.)
 - [x] Skeletons.
-- [ ] Verify, then report.
+- [x] Verify, then report.
 
 ### Phase 9: Analytics
 
