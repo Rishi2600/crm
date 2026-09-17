@@ -463,7 +463,7 @@ first.
   `maxWidth` as an inline style (a genuinely dynamic value); X button labelled
   "Close"; scrollable body; footer; body omitted when `children` is null; no
   `aria-describedby` warning when there's no description.
-- [ ] **ConfirmDialog** — primitive `alert-dialog`. Rebuild on AlertDialog with
+- [x] **ConfirmDialog** — primitive `alert-dialog`. Rebuild on AlertDialog with
   the same `useConfirm` API; `danger` uses the destructive button (**see Q5**).
 - [ ] **Toast** — hand-written `ui/sonner.tsx` (no `next-themes`; watches the
   `.dark` class with a MutationObserver; no shadows), and install `sonner@^2`.
