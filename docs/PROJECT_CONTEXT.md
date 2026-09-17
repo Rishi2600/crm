@@ -4,8 +4,9 @@
 > so an assistant with no memory of earlier sessions can work on it as
 > effectively as the one that wrote it. Everything below was checked against the
 > code, the git history and the live database at commit **`4fe3637`**
-> (17 September 2026). Where something is broken or unfinished, it says so
-> plainly — see §17.
+> (17 September 2026). Sections 1, 2, 4–6, 11, 12 and 16–19 were then updated
+> for the shadcn/ui refactor on branch **`feat/shadcn-ui`**. Where something is
+> broken or unfinished, it says so plainly — see §17.
 
 **Contents**
 1. What this is · 2. Stack · 3. Running it · 4. Repository layout ·
@@ -38,7 +39,10 @@ it.
   only — this project's own conventions win where they disagree.
 
 **Current state:** everything committed, working tree clean. Type-checks and
-production-builds clean. There are **no automated tests**.
+production-builds clean. There are **no automated tests**. The UI was moved
+onto shadcn/ui on branch **`feat/shadcn-ui`** (plan and decisions in
+`docs/UI_REFACTOR_PLAN.md`); that branch is not merged into `main`. No API,
+schema or business rule changed in it.
 
 ---
 
@@ -53,7 +57,12 @@ production-builds clean. There are **no automated tests**.
 | Database | PostgreSQL on **Neon** (pooled connection) |
 | Tailwind CSS | 3.4.19 |
 | Auth | `jose` 5.10 (HS256 JWT) + `bcryptjs` |
-| Charts | recharts 2.15.4 |
+| UI primitives | **shadcn/ui** (style `new-york`, base colour neutral, CSS variables) on **Radix** (`@radix-ui/react-*`); config in `components.json` |
+| UI helpers | class-variance-authority, clsx + tailwind-merge (`cn()`), tailwindcss-animate |
+| Toasts | sonner 2 (no `next-themes`) |
+| Calendar | react-day-picker **9** (not 10) |
+| Command palette | cmdk |
+| Charts | recharts 2.15.4, wrapped by the shadcn `chart` component |
 | Animation | framer-motion 11.18.2 |
 | Icons | lucide-react 0.363.0 |
 | Seed runner | tsx |
@@ -141,39 +150,46 @@ The login page shows `admin@crm.com · password123` as a demo hint.
 ```
 crm/
 ├── README.md                     setup, logins, pages, known gaps
+├── components.json               shadcn/ui settings (new-york, neutral, lucide, aliases)
 ├── docs/
 │   ├── PROJECT_CONTEXT.md        this file
 │   ├── MODULES.md                the three feature modules and the reasoning behind them
 │   ├── LIFECYCLE-AUDIT.md        end-to-end walkthrough against the real DB + findings
-│   └── RBAC.md                   roles, permissions, the inter-team fix
+│   ├── RBAC.md                   roles, permissions, the inter-team fix
+│   └── UI_REFACTOR_PLAN.md       the shadcn/ui refactor: findings, decisions, checklist
 ├── prisma/
 │   ├── schema.prisma             10 models, 18 enums
 │   ├── seed.ts                   idempotent, destructive sample data
 │   └── migrations/               9 hand-written SQL migrations
 ├── next.config.js                empty — no custom config, no security headers
-├── tailwind.config.js            content: src/{pages,components,app}; Inter + JetBrains Mono
+├── tailwind.config.js            shadcn colour tokens, radius, Inter + JetBrains Mono, tailwindcss-animate
 └── src/
     ├── middleware.ts             JWT check on every non-static path; sets x-user-* headers
     ├── app/
     │   ├── layout.tsx            Toast + Confirm providers; pre-paint theme script
-    │   ├── globals.css           colour tokens (light/.dark), Inter import, focus ring
+    │   ├── globals.css           Inter import (first!), colour tokens (light/.dark), focus ring
     │   ├── page.tsx              marketing landing page (see §17: behind auth)
-    │   ├── (auth)/login/         login page
-    │   ├── dashboard/            Lead / Follow-Up / Deal insight tabs
-    │   ├── leads/                lead list + leads/[id] detail
-    │   ├── contacts/             contact list
-    │   ├── deals/                kanban pipeline
-    │   ├── follow-ups/           follow-up list
-    │   ├── tasks/                task list
-    │   ├── analytics/            analytics dashboard
+    │   ├── (auth)/login/         login page (no shell)
+    │   ├── (app)/                every signed-in page; layout.tsx wraps them in AppShell
+    │   │   ├── dashboard/        Lead / Follow-Up / Deal insight tabs
+    │   │   ├── leads/            lead list + leads/[id] detail
+    │   │   ├── contacts/         contact list
+    │   │   ├── deals/            kanban pipeline
+    │   │   ├── follow-ups/       follow-up list
+    │   │   ├── tasks/            task list
+    │   │   └── analytics/        analytics dashboard
     │   └── api/                  23 route handlers (see §10)
     ├── components/
-    │   ├── cards/                ActivityFeed, MetricCard
-    │   ├── charts/               PipelineChart, RevenueChart, TrendsChart
-    │   ├── insights/             DateRangeFilter, InsightCard, InsightsPanel, InsightsTabs
-    │   ├── layout/               Sidebar, ThemeToggle, ComingSoon (unused)
-    │   └── ui/                   Select, DatePicker, Dialog, ConfirmDialog, Toast,
-    │                             LoadingState, RevealOnHover
+    │   ├── ui/                   shadcn/ui primitives (copied source; see §6)
+    │   ├── common/               the app's own shared components (see §6)
+    │   ├── layout/               AppShell, AppSidebar, CommandMenu, PageHeader, ThemeToggle, nav.ts
+    │   ├── cards/                ActivityFeed
+    │   ├── charts/               AreaTrendChart, DealsChart, GroupedBarChart, PipelineChart,
+    │   │                         RevenueChart, TrendsChart
+    │   ├── insights/             DateRangeFilter, InsightsPanel, InsightsTabs
+    │   └── leads/                LeadStatusFields
+    ├── hooks/
+    │   └── use-mobile.tsx        phone-width check used by the shadcn sidebar
     ├── lib/
     │   ├── auth.ts               sign/verify JWT, extract token
     │   ├── prisma.ts             singleton client
@@ -182,7 +198,8 @@ crm/
     │   ├── leads.ts              lead label↔enum maps, pairing rule — CLIENT-SAFE
     │   ├── leads.server.ts       prepareLead() — needs the database
     │   ├── csv.ts                hand-written RFC-4180 parser
-    │   └── currency.ts           formatINR / formatINRExact
+    │   ├── currency.ts           formatINR / formatINRExact
+    │   └── utils.ts              cn() — merges Tailwind classes
     └── types/                    analytics, contacts, dashboard, deals, followups,
                                   insights, leads, tasks
 ```
@@ -213,6 +230,9 @@ crm/
 
 Every page is a `"use client"` component that fetches in `useEffect`. There are
 no server components fetching data and no data library (no SWR / React Query).
+The one server component in the shell, `src/app/(app)/layout.tsx`, reads only
+the `sidebar_state` cookie (so the sidebar opens in the state the user left
+it); that cookie read makes the signed-in routes dynamic (λ) in `next build`.
 Each page redirects to `/login` if `crm-token` is missing from `localStorage`.
 
 The Dashboard fetches `/api/dashboard` **lazily** — only when the Deal Insights
@@ -249,93 +269,188 @@ repeated in Contacts, Deals, Tasks, Follow-ups and Leads.
 
 ## 6. Design system
 
+The UI is built on **shadcn/ui** (style `new-york`, neutral greys, one blue
+accent). The look follows a reference dashboard design: hairline borders, no
+shadows, one card per block, metric strips divided by hairlines, and a blue
+ramp for every chart and progress bar.
+
 ### Colour tokens (`src/app/globals.css`)
 
-The UI is deliberately monochrome. Colour comes only from these variables:
+Tokens hold **bare HSL channels** (`0 0% 98%`); `tailwind.config.js` wraps them
+in `hsl()` so opacity modifiers such as `bg-primary/10` work.
 
-| Token | Light | Dark |
-|---|---|---|
-| `--bg` | `#ffffff` | `#0a0a0a` |
-| `--bg-subtle` | `#fafafa` | `#111111` |
-| `--bg-card` | `#ffffff` | `#111111` |
-| `--border` | `#ebebeb` | `#1f1f1f` |
-| `--text` | `#0f0f0f` | `#f0f0f0` |
-| `--text-muted` | `#999999` | `#666666` |
-| `--text-faint` | `#cccccc` | `#2a2a2a` |
-| `--green` | `#16a34a` | `#4ade80` |
-| `--red` | `#dc2626` | `#f87171` |
-| `--live` | `#22c55e` | `#4ade80` |
+| Token | Light | Dark | Used for |
+|---|---|---|---|
+| `--background` | `#fafafa` | `#080808` | page |
+| `--card`, `--popover` | `#ffffff` | `#161616` | cards, menus, dialogs |
+| `--foreground` | `#0a0a0a` | `#fafafa` | text |
+| `--muted`, `--secondary`, `--accent` | `#f5f5f5` | `#262626` | subtle fills, hover |
+| `--muted-foreground` | `#737373` | `#a1a1a1` | secondary text |
+| `--border`, `--input` | `#e5e5e5` | `#262626` | hairlines, field borders |
+| `--primary`, `--ring` | `#155dfc` | `#155dfc` | buttons, focus ring, active states |
+| `--destructive` | `#dc2626` | `#dc2626` | destructive *fills* |
+| `--chart-1` … `--chart-5` | `#155dfc` `#2b7fff` `#8ec5ff` `#1447e6` `#193cb8` | same | charts, progress bars (single-series charts use chart-1) |
+| `--chart-axis` | `#737373` | `#626262` | chart axis labels (`fill-axis`) |
+| `--sidebar-*` | white panel | `#161616` panel | the sidebar |
+| `--radius` | `0.625rem` | | corner radius scale |
 
-The only other hues are status dots. Lead status: Fresh `#2563eb`,
-Interested `#d97706`, Converted `--green`, Closed `--red`,
-Irrelevant `--text-faint`. Follow-up status: Pending `#d97706`, Done `--green`,
-Missed `--red`, Planned `--text-muted`, Cancelled `--text-faint`.
+**Semantic colours** keep finished values (not HSL channels) and lighten in the
+dark theme so small text stays readable:
 
-`tailwind.config.js` also defines `brand` and `surface` colour scales. The app
-doesn't use them — it colours everything through the CSS variables.
+| Variable | Light | Dark | Tailwind class |
+|---|---|---|---|
+| `--text-faint` | `#cccccc` | `#525252` | `text-faint`, `bg-faint` |
+| `--green` | `#16a34a` | `#4ade80` | `text-success` |
+| `--red` | `#dc2626` | `#f87171` | `text-danger` (red **text**; `destructive` is for fills) |
+| `--live` | `#22c55e` | `#4ade80` | `bg-live` |
+
+The old names `--bg`, `--bg-subtle`, `--bg-card`, `--text` and `--text-muted`
+are gone, and `--border` is now shadcn's token (HSL channels).
+
+**Status colours** all live in `src/components/common/statusColors.ts`:
+
+- Deal stages: Qualification chart-3, Proposal chart-2, Negotiation chart-1,
+  Closed Won green. Deal status (derived on the board): Won green, Open grey.
+- Lead status: Fresh chart-1 blue, Interested amber `#d97706`, Converted green,
+  Closed red, Irrelevant faint.
+- Follow-up status: Planned grey, Pending amber, Done green, Missed red,
+  Cancelled faint.
+- Temperature: Hot red, Warm amber, Cold grey. Task priority: High red,
+  Medium amber, Low grey.
+
+Amber has no theme token yet; it is the one hex value kept in that file.
 
 ### Theme
 
-- Dark mode is the class `.dark` on `<html>`, saved in `localStorage` under
-  `crm-theme`. An inline script in `layout.tsx` applies it before first paint.
-- `ThemeToggle` animates the switch as a circle expanding from the button
-  (framer-motion, 500 ms), then flips the real theme underneath.
-- Font: **Inter**, loaded by a Google Fonts `@import`. Global
-  `:focus-visible` outline in `--text`.
+- Dark mode is still the class `.dark` on `<html>`, saved in `localStorage`
+  under `crm-theme`, applied before first paint by an inline script in
+  `layout.tsx`. There is no `next-themes`.
+- `ThemeToggle.tsx` exports `useThemeToggle()` (used by the sidebar's user
+  menu) and the standalone button used on the login and landing pages. The
+  switch animates as a circle expanding from the button; the overlay colours
+  `#fafafa` / `#080808` are hard-coded to match the backgrounds.
+- The sonner `Toaster` follows the `.dark` class through a MutationObserver.
+- `:root` and `.dark` set `color-scheme`, so native controls (the time picker,
+  scrollbars) follow the theme.
+- Font: **Inter**. Its Google Fonts `@import` must be the first rule in
+  `globals.css`; before the refactor it sat below the Tailwind directives, the
+  browser ignored it, and the app actually rendered in the system font.
 
 ### Styling idiom
 
-Tailwind handles layout and spacing. Colours are applied inline:
-`style={{ color: "var(--text-muted)" }}`. New code should follow the same split.
+- Colour comes from **token classes** (`bg-card`, `text-muted-foreground`,
+  `border`, `text-danger`). Conditional classes go through `cn()` from
+  `src/lib/utils.ts`.
+- **Inline styles only for values computed at runtime**: bar widths, a dot
+  colour looked up from `statusColors.ts`, a chart height, a Dialog's
+  `maxWidth`.
+- **No shadows.** Blocks are separated by hairline borders.
 
 ### Page shell
 
-`<Sidebar />` is fixed on the left, `w-52`. Content sits in
-`<main className="flex-1 ml-52">`, starting with a 56 px top bar (title on the
-left, `ThemeToggle` on the right), then a `p-8` body.
-
-**Sidebar order:** Dashboard, Leads, Contacts, Deals, Follow-up, Tasks,
-Analytics, then **Sign out** at the bottom. The active item is matched by path
-prefix, so `/leads/<id>` keeps **Leads** highlighted. Every item is shown to
-every role.
+- `src/app/(app)/layout.tsx` (server) reads the `sidebar_state` cookie and
+  renders `AppShell` (client): `SidebarProvider` → `PageHeaderProvider` →
+  `AppSidebar` + `SidebarInset`.
+- **`AppSidebar`** (`variant="inset"`, collapses to icons with the top-bar
+  button or Ctrl/Cmd+B; on phones it becomes a sheet): brand block, the nav list from `nav.ts` (Dashboard, Leads,
+  Contacts, Deals, Follow-up, Tasks, Analytics), a Search entry, and a user
+  menu with name, email and role (from `crm-user`), the theme switch, and
+  **Sign out** (same behaviour as before — see §17 item 3). The active item is
+  matched by path prefix, so `/leads/<id>` keeps **Leads** highlighted. Every
+  item is shown to every role.
+- **Top bar**: sidebar toggle, the page's title, the page's actions, and a
+  search button. Pages fill it with
+  `<PageHeader title={…}>actions</PageHeader>`, which portals into two slot
+  elements. List pages show "Title · count"; the create buttons (New Deal, Add
+  Lead, Bulk Upload, New Follow-Up, New Contact, New Task) live here, with
+  their labels hidden on phones.
+- **`CommandMenu`** (Ctrl/Cmd+K, or the Search entries) jumps between pages. It
+  searches nothing else.
+- Content sits in `p-4 md:p-6`.
 
 ### Tables
 
-Each row is a 12-column CSS grid, `px-4 py-3 text-sm items-center`. The header
-row sits on `--bg-subtle`, and rows are separated by `--border`.
+- The shadcn `Table` inside `rounded-xl border bg-card`; the header row sits on
+  `bg-muted/40`. Each table has a minimum width and scrolls sideways inside its
+  card on narrow screens.
+- The first cell shows `InitialsAvatar` plus **`RevealOnHover`**. Only the name
+  or title shows at rest; the other details slide open when the row is hovered
+  or keyboard-focused. The owner's rules still hold:
+  - **The name is plain text, not a link.** Each table has its own way to open
+    a record.
+  - **The expansion must be smooth.** It animates `grid-template-rows` from
+    `0fr` to `1fr` over 300 ms, with a 200 ms opacity fade — not `max-height`,
+    which stalled partway and looked janky.
+  - Each row carries the class **`group/row`** — a *named* group, so it can't
+    collide with a plain `group`.
+- Statuses are `StatusBadge`s. Row actions sit in a `RowActionsMenu` ("…"):
+  Leads (Open, Change status, Schedule follow-up; the status cell stays
+  clickable and the open chevron stays), Follow-ups (Mark as Done / Missed /
+  Cancelled, or Set outcome on Done rows; Reschedule), Tasks (Change status,
+  Delete). Contacts has a single Schedule follow-up button.
+- Loading shows `TableSkeletonRows`; empty shows `TableMessageRow`.
+- `PaginationFooter`: "Page X of Y · Count: N" with first / previous / next /
+  last. Page sizes are fixed: Leads 20, Follow-ups 20, Contacts 10. Tasks shows
+  "Showing N of M" only (see §17 item 32).
 
-In the Leads, Follow-up, Contacts and Tasks tables, the first cell uses
-**`RevealOnHover`**. Only the name or title shows at rest; the other details
-slide open when the row is hovered or keyboard-focused. Two rules the owner set
-explicitly:
+### Primitives (`src/components/ui`)
 
-- **The name is plain text, not a link.** Each table already has its own way to
-  open a record, so a clickable name was redundant.
-- **The expansion must be smooth.** It animates `grid-template-rows` from `0fr`
-  to `1fr` over 300 ms, with a 200 ms opacity fade. It does **not** use
-  `max-height`, which stalled partway through and looked janky.
+shadcn/ui source copied into the repo: `alert-dialog`, `avatar`, `badge`,
+`button`, `calendar`, `card`, `chart`, `command`, `dialog`, `dropdown-menu`,
+`input`, `label`, `popover`, `progress`, `select`, `separator`, `sheet`,
+`sidebar`, `skeleton`, `sonner`, `table`, `tabs`, `textarea`, `tooltip`.
 
-Each row must carry the class **`group/row`** — a *named* Tailwind group, so it
-can't collide with the plain `group` used for button arrows on the landing and
-login pages.
+Local edits are listed in a comment at the top of each file: shadow classes
+removed everywhere; `badge` renders a `<span>`; `calendar`'s Tailwind-v4-only
+classes rewritten for v3; `chart`'s tooltip takes a `valueFormatter` and shows
+zeros, and axis labels use `fill-axis`; `progress`'s track uses the border
+colour; `tabs` triggers get a border when active; `command`'s dialog has a
+hidden title; `sonner.tsx` is hand-written (no `next-themes`).
 
-### Shared UI components (`src/components/ui`)
+### Shared components (`src/components/common`)
 
 | Component | Notes |
 |---|---|
-| `Select` | Dropdown rendered in a portal with fixed positioning, so it isn't clipped inside dialogs. `align="left"\|"right"`. |
-| `DatePicker` | Calendar in a portal. Value is `"YYYY-MM-DD"` or `""`. |
-| `Dialog` | Modal in a portal, animated with framer-motion. Escape closes it; body scroll is locked while open. Props: `title`, `description`, `footer`, `maxWidth` (default `480px`). |
-| `ConfirmDialog` | `const confirm = useConfirm(); if (await confirm({ title, message, danger })) …` |
-| `Toast` | `const { showToast } = useToast(); showToast(msg, "success" \| "error" \| "info")` |
-| `LoadingState` | `variant="block"` (default) or `"inline"`. Also exports `Spinner`. |
+| `Select` | Radix select with the old props (`value`, `onChange`, `options`, `placeholder`, `className`, `align`, `id`). An option whose value is `""` works through a sentinel. A value that matches no option shows the placeholder. |
+| `DatePicker` | Popover + calendar. Value is `"YYYY-MM-DD"` or `""`, parsed as a local date. Has a "Clear date" button and an `id`. |
+| `Dialog` | Radix dialog. Props: `open`, `onClose`, `title`, `description`, `footer`, `maxWidth` (default `480px`). Escape and backdrop close it. |
+| `ConfirmDialog` | `const confirm = useConfirm(); if (await confirm({ title, message, danger })) …` — an AlertDialog, so a backdrop click doesn't dismiss it. |
+| `Toast` | `const { showToast } = useToast(); showToast(msg, "success" \| "error" \| "info")` — sonner, 3.5 s, click to dismiss. |
 | `RevealOnHover` | `<RevealOnHover primary={name}><RevealLine tone="muted"\|"faint">…</RevealLine></RevealOnHover>`. Renders no wrapper if given no children. |
+| `SectionCard` | Card with `title`, `description`, `action` (controls on the right). |
+| `MetricStrip` | One card divided into cells: `metrics[{ label, value, icon?, change? }]`, `perRow` (2–8), `loading`, `compact` (for text values). `change` draws a green/red line with an arrow. |
+| `ErrorBanner` | The inline error style. |
+| `StatusBadge` | Outlined badge with a coloured dot. |
+| `FormField` | Label above a control, optional hint. |
+| `SearchInput` | Input with a search icon. |
+| `FilterPills` | Pill buttons with counts (Leads, Follow-ups). |
+| `SegmentedToggle` | Two- or three-way toggle (Analytics ranking). |
+| `PaginationFooter`, `RowActionsMenu`, `TableStates`, `ScoreBar`, `InitialsAvatar` | See Tables. |
+| `FollowUpFields` | Date, time and optional notes fields shared by every follow-up form. |
 
-**Hydration rule:** anything rendered in a portal only appears after a `mounted`
-flag is set in `useEffect`. Skipping this caused an earlier hydration error.
+Also: `components/leads/LeadStatusFields` (the status prompt's body, shared by
+the lead list and detail pages) and `components/charts/AreaTrendChart` (the one
+gradient area chart: Revenue, Trends, Analytics).
 
-KPI tiles (`InsightCard`) are intentionally monochrome — the reference
-screenshots used a pastel colour per card, which the app declined to copy.
+Skeletons are drawn in the final shape of each block; `LoadingState` and the
+old `MetricCard` / `InsightCard` tiles were deleted.
+
+**Hydration:** Radix mounts its portals on the client itself, so the old
+`mounted` guards are gone. `PageHeader`'s slots are empty on the first render,
+so server and client markup match.
+
+### Adding a primitive
+
+1. `yes n | npx shadcn@latest add <name>` — the `yes n` answers "no" to every
+   "overwrite?" prompt. **Never run `shadcn init`**: this CLI only offers
+   Tailwind v4 presets.
+2. `git diff tailwind.config.js src/app/globals.css` — `add sidebar` once
+   rewrote both; restore them if touched.
+3. Check `package.json`: `add sonner` pulls in `next-themes`, and `add calendar`
+   pulls in react-day-picker 10 and date-fns. This repo uses neither.
+4. Remove shadow classes, rewrite any Tailwind-v4-only syntax, and list the
+   local edits in a comment at the top of the file.
+5. Add it in the same commit as the first code that uses it.
 
 ---
 
@@ -722,16 +837,16 @@ applies §9.
 
 | Route | What it does | Calls |
 |---|---|---|
-| `/` | Marketing landing page: "One workspace for your entire pipeline." Feature list covers Contacts, Pipeline, Tasks and Analytics — not Leads or Follow-ups. Shows made-up stats including **"$284.5K"**. About 180 of its 388 lines are an older, commented-out version. | — |
-| `/login` | Email and password form, demo credentials shown. Saves `crm-token` and `crm-user`, then goes to `/dashboard`. | login |
-| `/dashboard` | Three tabs: **Lead Insights** and **Follow-Up Insights** (9 KPI tiles each, a date-range filter with presets from Today to This year plus Custom, and a Trends graph with a metric and granularity picker), and **Deal Insights** (the original dashboard: Total Revenue vs last month, Active Deals, Contacts, Conversion Rate, revenue chart, pipeline chart, activity feed). | insights/*, dashboard |
-| `/leads` | 8 KPI tiles covering every lead you can access (the filters don't affect them). Filters: search, Sub-Status, Source, Agent, Location, From/To. Sort. Pills: ALL, FRESH, INTERESTED, CONVERTED, CLOSED, IRRELEVANT, RE-ENQUIRED — these *are* the status filter. Table: name (details on hover), status and sub-status (click to change), score, next follow-up with a Schedule button, agent, source, open. Dialogs: **Add Lead**, **Bulk Upload** (download template, pick file, see per-row report), **Change status** (remark required), **Schedule follow-up**. | leads, leads/bulk, leads/[id]/status, follow-ups, insights/summary, users/assignable |
-| `/leads/[id]` | Header: name, ID, created date, clickable status, agent, buttons (Assignment Trail, History, Add Remark, Follow-up, Edit). Six tiles: Lead Age, Temperature, Source Name, Re-Enquired, Last Follow-up, Lead Score. Personal Details grid, Last Lead Remark, the 5 most recent activity entries (plus "View all"). Dialogs for history, status change, edit (including reassigning the agent), add remark, and follow-up. | leads/[id], leads/[id]/*, follow-ups, users/assignable |
-| `/contacts` | Search, sort (Name, Deal Value, Newest), pagination. Table: name (email on hover), company, location, deal value, temperature labelled "status", favourite star, and a schedule-follow-up button. Dialogs: **New Contact**, **Schedule follow-up**. | contacts, follow-ups |
-| `/deals` | Kanban board: four stage columns with count and total, drag and drop to move a deal forward (moving backward shows an error toast), search, sort. Dialog: **New Deal** — its amount field still says **"Amount ($)"**. | deals/pipeline, deals, deals/[id]/stage |
-| `/follow-ups` | Seven count tiles (Total, Planned, Pending, Rescheduled, Cancelled, Done, Missed), pills, search, Agent, From/To, sort. Table: lead (company, deal and notes on hover), agent, scheduled time (red when overdue), status with outcome, a Mark-as or Set-outcome dropdown, and a reschedule button. Dialogs: **New Follow-Up**, **Reschedule**. | follow-ups, follow-ups/[id], users/assignable, contacts |
-| `/tasks` | Filters: All, To Do, In Progress, Completed. Search. Table: title (description on hover), assignee, related deal, priority, due date, a status dropdown, delete (asks for confirmation). Dialog: **New Task**, which can be a meeting. | tasks, tasks/[id], tasks/[id]/status, users/assignable |
-| `/analytics` | From/To filter. Tiles: Average Deal Size, Win Rate, Sales Cycle (days), Active Leads. Revenue trend line, deals and contacts growth bars, sales funnel, top performers (by revenue or by deals closed). | analytics/dashboard |
+| `/` | Marketing landing page: "One workspace for your entire pipeline." Feature list covers Contacts, Pipeline, Tasks and Analytics — not Leads or Follow-ups. Shows made-up stats including **"$284.5K"**. About 195 of its lines are an older, commented-out version. No shell. | — |
+| `/login` | Branded panel plus a card with email and password (Enter submits), demo credentials shown. Saves `crm-token` and `crm-user`, then goes to `/dashboard`. No shell. | login |
+| `/dashboard` | Top bar: greeting, date, "Live". Three tabs: **Lead Insights** and **Follow-Up Insights** (a 9-cell metric strip, a date-range filter with presets from Today to This year plus Custom, and a Trends area chart with a metric and granularity picker — one shared panel, so the date range survives switching between them), and **Deal Insights** (a 4-cell strip — Total Revenue with its change vs last month, Active Deals, Contacts, Conversion Rate — then the revenue area chart, pipeline progress bars, the activity feed and deals-per-month bars; fetched only when first opened). | insights/*, dashboard |
+| `/leads` | Top bar: Bulk Upload, Add Lead. An 8-cell metric strip covering every lead you can access (the filters don't affect it). Filters: search, Sub-Status, Source, Agent, Location, From/To. Pills: ALL, FRESH, INTERESTED, CONVERTED, CLOSED, IRRELEVANT, RE-ENQUIRED — these *are* the status filter — with Sort beside them. Table: initials + name (details on hover), status badge and sub-status (click to change), score bar, next follow-up with a Schedule button, agent, source, a row menu (Open, Change status, Schedule follow-up) and an open chevron. Dialogs: **Add Lead**, **Bulk Upload** (download template, pick file, see per-row report), **Change status** (remark required), **Schedule follow-up**. | leads, leads/bulk, leads/[id]/status, follow-ups, insights/summary, users/assignable |
+| `/leads/[id]` | Top bar: "← Leads". Header card: initials, name, ID, created date, clickable status, agent, buttons (Assignment Trail, History, Add Remark, Follow-up, Edit). A 6-cell strip: Lead Age, Temperature, Source Name, Re-Enquired, Last Follow-up, Lead Score. Personal Details grid, Last Lead Remark, the 5 most recent activity entries (plus "View all"). Dialogs for history, status change, edit (including reassigning the agent), add remark, and follow-up. | leads/[id], leads/[id]/*, follow-ups, users/assignable |
+| `/contacts` | Top bar: New Contact. Search, sort (Name, Deal Value, Newest), pagination (10 per page). Table: initials + name (email on hover), company, location, deal value, temperature labelled "status", favourite star (display only), and a schedule-follow-up button. Dialogs: **New Contact**, **Schedule follow-up**. | contacts, follow-ups |
+| `/deals` | Top bar: New Deal. Kanban board: four stage columns with a stage dot, count, total, and a "+" (Qualification, Proposal and Negotiation only) that opens New Deal preset to that stage. Cards: contact initials, title, contact, a Won/Open badge derived from the stage (the endpoint returns no status), probability bar, close date, amount. Drag and drop moves a deal forward; moving backward shows an error toast and invalid columns dim while dragging. Search, sort. Dialog: **New Deal** — its amount field still says **"Amount ($)"**. | deals/pipeline, deals, deals/[id]/stage |
+| `/follow-ups` | Top bar: New Follow-Up. A 7-cell strip (Total, Planned, Pending, Rescheduled, Cancelled, Done, Missed), search, Agent, From/To, pills with sort beside them. Table: initials + lead (company, deal and notes on hover), agent, scheduled time (red when overdue, with the move count), status badge with outcome, and a row menu: Mark as Done / Missed / Cancelled (or Set outcome on Done rows) and Reschedule. Dialogs: **New Follow-Up**, **Reschedule**. | follow-ups, follow-ups/[id], users/assignable, contacts |
+| `/tasks` | Top bar: New Task. Filter tabs: All, To Do, In Progress, Completed. Search. Table: title (description on hover), assignee initials, related deal, priority badge, due date, a status dropdown, and a row menu (Change status, Delete — asks for confirmation). Footer: "Showing N of M" (at most 50 load). Dialog: **New Task** — title, description, priority, due date, assignee. It cannot create a meeting, although the API can (§17 item 33). | tasks, tasks/[id], tasks/[id]/status, users/assignable |
+| `/analytics` | From/To filter with Apply. A 4-cell strip: Average Deal Size, Win Rate, Sales Cycle (days), Active Leads. Revenue trend area chart; deals and contacts growth as grouped bars. Sales funnel of deals that have **reached** each stage — worked out in the browser by adding each stage's count to every later one, since deals only move forward — with each stage's share of the one before, and "Leads (contacts)" shown beside it rather than as its top. Top performers with initials, a By Revenue / By Deals Closed toggle (re-fetches) and bars relative to the leader. | analytics/dashboard |
 
 ---
 
@@ -771,6 +886,10 @@ applies §9.
   ₹4.5L, ₹2.4Cr); `formatINRExact(n)` gives Indian digit grouping
   (₹12,34,567). This replaced four copy-pasted `$` formatters. The seed imports
   it too.
+- **`utils.ts`** — `cn(...classes)`: joins class names with clsx and resolves
+  Tailwind conflicts with tailwind-merge (the later class wins).
+- **`src/hooks/use-mobile.tsx`** — `useIsMobile()`, used by the shadcn
+  sidebar to switch to a sheet below 768 px.
 
 ---
 
@@ -890,6 +1009,8 @@ applies §9.
 | 12 Sep | `b149a79` | Leads table: name only, details on hover, name not clickable, smooth expansion |
 | 13 Sep | `3b65ac0` | **Permissions:** team scoping for managers on every route; second team added to seed; `docs/RBAC.md` |
 | 16 Sep | `4fe3637` | `RevealOnHover` component shared by the Leads, Follow-up, Contacts and Tasks tables |
+| 17 Sep | `5c31476` | This file |
+| 17 Sep | `dff6a3b` onward, branch `feat/shadcn-ui` | **UI refactor to shadcn/ui**: tokens, shared shell with collapsible sidebar and top bar, every page rebuilt; no API, schema or rule changes. Plan, decisions and checklist in `docs/UI_REFACTOR_PLAN.md`. Not merged. |
 
 ---
 
@@ -908,7 +1029,7 @@ matter.
 2. **`/api/dashboard` isn't scoped.** Every user, including a junior rep, sees
    company-wide revenue, deal and contact counts, the pipeline and recent
    activity. It's the only data endpoint left without scoping.
-3. **Sign out doesn't end the session.** The sidebar removes the
+3. **Sign out doesn't end the session.** Sign out (in the sidebar's user menu) removes the
    `localStorage` entries and tries to clear the `auth-token` cookie from
    JavaScript — but that cookie is `httpOnly`, which JavaScript cannot touch,
    and the `/api/auth/logout` endpoint that could clear it is never called. The
@@ -963,25 +1084,44 @@ matter.
 ### Housekeeping
 
 23. **Two leftover dollar signs** the INR switch missed: `"$284.5K"` on the
-    landing page (`src/app/page.tsx:302`) and the `"Amount ($)"` placeholder on
-    the Deals page (`src/app/deals/page.tsx:309`).
+    landing page (`src/app/page.tsx:292`) and the `"Amount ($)"` placeholder on
+    the Deals page (`src/app/(app)/deals/page.tsx:380`).
 24. **The landing page is only visible when logged in.** Middleware doesn't
     treat `/` as public, so logged-out visitors are sent to `/login`. Its copy
     and numbers are also out of date.
 25. Most dates are formatted with `"en-US"`, not `"en-IN"`.
-26. Unused code: the `ComingSoon` component, the `/api/companies` and
-    `/api/auth/logout` endpoints, and large commented-out blocks in
-    `src/app/page.tsx` and `api/dashboard/route.ts`.
+26. Unused code: the `/api/companies` and `/api/auth/logout` endpoints, and
+    large commented-out blocks in `src/app/page.tsx` and
+    `api/dashboard/route.ts`. (`ComingSoon` was deleted in the UI refactor.)
 27. Misleading comments: tasks delete mentions a contacts rule that was never
     built; the follow-up list says "soonest first" but sorts newest first.
 28. No tests, no ESLint config, no CI, no monitoring — 22 route files just write
     to `console.error`.
 29. `tsconfig.tsbuildinfo` is tracked in git.
-30. **UI work has never been checked in a real browser.** The hover rows,
-    dialogs and layouts were verified only by type-checking, building,
-    confirming the generated CSS, and checking that pages return HTTP 200.
-    One thing to watch: rows are vertically centred, so other columns may shift
-    slightly while a row expands.
+30. **No person has reviewed the UI in a browser.** The shadcn/ui refactor was
+    checked with headless Chrome: screenshots of every page in both themes, at
+    desktop and phone width, with no console errors, plus scripted checks of
+    the hover reveal, row menus, the Set outcome submenu, the backward-drag
+    toast and sign-in. Screenshots are not a review; see the refactor report
+    for what to click through. Rows are vertically centred, so other columns
+    shift slightly while a row expands.
+
+### Found during the UI refactor
+
+31. **Creating a deal straight into Closed Won leaves it half-won.**
+    `POST /api/deals` saves the stage only, so the deal keeps status OPEN and
+    no `closedAt`; moving a deal into Closed Won (`PATCH …/stage`) sets both.
+    Such deals are missing from Sales Cycle and Revenue Trend. The New Deal
+    dialog still offers Closed Won; the board's "+" buttons deliberately don't.
+32. **The Tasks page loads at most 50 tasks** (`limit=50`) and never asks for
+    another page, although the API supports `page`. Its footer says
+    "Showing N of M" so the cut-off is visible.
+33. **Meeting tasks can't be created from the UI.** The API accepts
+    `type: "Meeting"` with date, time and location, but the New Task dialog has
+    never had those fields.
+34. **The page font changed.** Inter now actually loads (see §6, Theme), so
+    text looks different from before the refactor even where nothing else
+    changed.
 
 **Fix order suggested in earlier sessions:** replace `JWT_SECRET` → scope
 `/api/dashboard` → re-read role and status on each request → add Closed Lost →
@@ -992,8 +1132,10 @@ deals, export, tests and linting.
 
 ## 18. Conventions for code in this repo
 
-- **Comments explain *why*, at length.** Important caveats are marked `🚩`.
-  Match that density; new code without it will stand out.
+- **Comments explain *why*, at length.** Important caveats are marked
+  `FLAG:` in new or rewritten files (older files still use a 🚩 emoji; don't
+  mass-edit them). No emojis in code, tests or scripts. Match that density;
+  new code without it will stand out.
 - **One rule, one place.** Permission scoping goes through `lib/scope.ts`,
   money through `lib/currency.ts`, lead labels through `lib/leads.ts`, table
   hover rows through `RevealOnHover`. This codebase has already paid for copies
@@ -1012,8 +1154,16 @@ deals, export, tests and linting.
 - Files meant for the browser must not import `prisma` or `*.server.ts`.
 - Route files may only export HTTP handlers and route settings. Shared helpers
   belong in `src/lib`.
-- **Pages:** `"use client"`, the shell from §6, a `LoadingState`, an error
-  banner, empty-state text, `useToast` for results, `Dialog` for forms.
+- **Pages:** `"use client"`, live under `src/app/(app)/` so they get the shell,
+  set the top bar with `<PageHeader>`, draw skeletons in the final shape,
+  show errors with `ErrorBanner`, have empty-state text, report results with
+  `useToast`, and put forms in `Dialog` with `FormField` labels.
+- **Styling:** token classes, never inline colours; inline styles only for
+  values computed at runtime; no shadows. `src/components/ui` holds shadcn
+  primitives (with their local edits noted at the top); `src/components/common`
+  holds the app's own shared components. Add primitives as described in §6.
+- **Status colours** come from `components/common/statusColors.ts`, never a
+  page-local map.
 - Migrations are hand-written SQL. Check them with
   `prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-schema-datasource prisma/schema.prisma`.
 - Keep the seed idempotent, and never let it create data the app itself
@@ -1032,7 +1182,9 @@ deals, export, tests and linting.
   report only; don't edit.
 - Expects **existing conventions to be kept**, and treats reference screenshots
   as guidance, not specification.
-- **Makes their own commits.** Don't commit or push unless asked.
+- **Makes their own commits.** Don't commit or push unless asked. For the
+  shadcn/ui refactor they allowed commits and pushes on `feat/shadcn-ui` only —
+  never to `main`, no PRs, no force-pushes.
 - Asks for things to be documented in simple words when a piece of work
   finishes.
 
@@ -1045,6 +1197,15 @@ deals, export, tests and linting.
 - Money is **INR**, and the seed data is Indian.
 - The same hover-row treatment applies to **every** table with the stacked
   layout.
+- **UI refactor decisions** (all in `docs/UI_REFACTOR_PLAN.md`): a funnel of
+  deals that reached each stage with Leads shown separately; kanban "+" on the
+  three open stages only; no previous-period line on Trends (it would need an
+  extra request); fixed page sizes with first/previous/next/last; the confirm
+  dialog can't be dismissed by clicking the backdrop; toasts dismiss on click;
+  the blue chart ramp in §6; the Closed Won create bug recorded, not fixed.
+- Stay on Next 14.1 / React 18 / Tailwind 3.4, keep the `.dark` +
+  `crm-theme` theme mechanism and Inter, and don't copy code, names or
+  branding from paid shadcn template kits.
 
 ### Corrections worth learning from
 
@@ -1063,10 +1224,13 @@ deals, export, tests and linting.
 ### Things to keep in mind
 
 - **Verifying changes:** `set -a; . ./.env; set +a`, then
-  `npx tsc --noEmit` and `npx next build`. For UI changes, confirm the Tailwind
-  classes actually appear in `.next/static/css/*.css` — named groups and
-  arbitrary values are the ones most likely to be dropped. After a build,
-  restore `tsconfig.tsbuildinfo`.
+  `npx tsc --noEmit` and `npx next build` (four "Dynamic server usage" lines are
+  expected). For UI changes, check that Tailwind v3 can generate every class:
+  `require("tailwindcss/lib/lib/setupContextUtils").createContext(resolveConfig(config)).getClassOrder([...])`
+  returns `null` for a class it doesn't know. shadcn snippets written for
+  Tailwind v4 (`**:`, `has-focus:`, `shadow-xs`) are the usual culprits. After
+  a build, restore `tsconfig.tsbuildinfo`. Stop any running `next dev`/`next
+  start` before building — they share `.next`.
 - **Testing permissions without changing data:** send a request that will fail
   a business rule *after* the ownership check. A 400 means authorization passed;
   a 403 means it didn't. Log in as Usman and try one of Rohit's records.
@@ -1075,7 +1239,13 @@ deals, export, tests and linting.
   afterwards).
 - The dev server holds port 3000 — stop it when you're done so the owner's own
   `npm run dev` can start.
-- **No browser automation is available** in these sessions, so say so rather
-  than implying a UI was checked by eye.
+- **Headless Chrome** (`google-chrome`) is installed and can be driven over the
+  DevTools protocol (Node 24 has a built-in WebSocket) for screenshots and
+  console errors: log in through `/api/auth/login`, set the `auth-token` cookie
+  and the `crm-token` / `crm-user` / `crm-theme` localStorage keys, then visit
+  pages on a `next start` server. CSS `:hover` needs a real
+  `Input.dispatchMouseEvent`; Radix menus open on `pointerdown`, not `click`.
+  Screenshots are still not a person's review — say what the owner should look
+  at.
 - The reference CRM showed saved-filter tabs, Campaign, Channel and Lead Score
   filters, Call Logs, Inbox and Organizations. None of those were built.

@@ -408,8 +408,10 @@ export default function TasksPage() {
                 </TableBody>
               </Table>
 
-              {/* FLAG: the list asks for at most 50 tasks and the API has no
-                  page parameter here, so the footer states the count only. */}
+              {/* FLAG: this page asks for at most 50 tasks and never sends a
+                  `page` parameter (the API accepts one, but adding it would
+                  change the page's request), so the footer states the count
+                  only. */}
               {!loading && total > 0 && (
                 <div className="border-t px-4 py-3 text-xs text-muted-foreground">
                   Showing {tasks.length} of {total}

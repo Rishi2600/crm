@@ -97,7 +97,7 @@ list and the counts. They're now combined with `AND`, and each pill's count is
 built from the exact same filter fragment the pill itself applies, so a count
 can never describe a different set of rows than clicking it shows.
 
-**Files:** `src/app/follow-ups/*`, `src/app/api/follow-ups/*`,
+**Files:** `src/app/(app)/follow-ups/*`, `src/app/api/follow-ups/*`,
 `src/lib/scope.ts`, `src/types/followups.ts`
 
 ---
@@ -200,7 +200,7 @@ Moving a lead out of Closed/Irrelevant back into a live status stamps
 until this module nothing in the app ever set it — the card could only ever show
 seeded numbers.
 
-**Files:** `src/app/leads/*`, `src/app/api/leads/*`, `src/lib/leads.ts`,
+**Files:** `src/app/(app)/leads/*`, `src/app/api/leads/*`, `src/lib/leads.ts`,
 `src/lib/leads.server.ts`, `src/lib/csv.ts`, `src/types/leads.ts`
 
 ---

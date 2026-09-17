@@ -600,7 +600,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
   `tailwind.config.js`.
 - [x] Delete unused code, searching before each deletion: `ComingSoon`, the old
   cards, `Spinner` if unused, any `common/` component nothing imports.
-- [ ] `docs/PROJECT_CONTEXT.md`:
+- [x] `docs/PROJECT_CONTEXT.md`:
   - §4 layout: `(app)` group, `components/common`, `hooks`, `components.json`
   - §6 design system: tokens, the styling convention, shell, tables, component
     inventory
