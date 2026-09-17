@@ -470,7 +470,7 @@ first.
   Rebuild `common/Toast` with the same API; `showToast` maps to
   success/error/info; 3.5 s; bottom-right; **clicking dismisses it**, kept by
   rendering each toast with a click handler (**see Q6**).
-- [ ] **LoadingState** — primitive `skeleton`. Same API: `block` renders stacked
+- [x] **LoadingState** — primitive `skeleton`. Same API: `block` renders stacked
   skeleton bars, `inline` renders a single-row skeleton, and `label` stays as
   muted text. `Spinner` stays exported.
 - [ ] **RevealOnHover** — token classes only; behaviour unchanged.
