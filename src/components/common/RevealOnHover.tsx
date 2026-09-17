@@ -4,7 +4,7 @@
 // the ROW is hovered or keyboard-focused. Used by the Leads, Follow-up,
 // Contacts and Tasks tables.
 //
-// 🚩 One component rather than the same markup pasted into four pages. The
+// FLAG: One component rather than the same markup pasted into four pages. The
 // Leads table got this behaviour first and the other three were left with the
 // old always-expanded layout — exactly the kind of drift this app has already
 // paid for twice (four copies of formatCurrency, four copies of the owner-scope
@@ -34,6 +34,8 @@
 // in the DOM while collapsed — clipped, not removed — so screen readers still
 // reach them.
 
+import { cn } from "@/lib/utils";
+
 interface RevealOnHoverProps {
   /** Always visible. Plain text on purpose — every table has its own column
    *  for opening a record, so this is not a second clickable way in. */
@@ -46,17 +48,17 @@ interface RevealOnHoverProps {
 export default function RevealOnHover({ primary, children }: RevealOnHoverProps) {
   return (
     <div className="min-w-0">
-      <div className="truncate" style={{ color: "var(--text)" }}>
+      <div className="truncate text-foreground">
         {primary}
       </div>
 
       {children && (
         <div
-          className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out
+          className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none
                      group-hover/row:grid-rows-[1fr] group-focus-within/row:grid-rows-[1fr]"
         >
           <div
-            className="overflow-hidden opacity-0 transition-opacity duration-200 ease-out
+            className="overflow-hidden opacity-0 transition-opacity duration-200 ease-out motion-reduce:transition-none
                        group-hover/row:opacity-100 group-focus-within/row:opacity-100"
           >
             {children}
@@ -80,8 +82,10 @@ export function RevealLine({
 }) {
   return (
     <div
-      className="text-xs pt-1 truncate"
-      style={{ color: tone === "muted" ? "var(--text-muted)" : "var(--text-faint)" }}
+      className={cn(
+        "truncate pt-1 text-xs",
+        tone === "muted" ? "text-muted-foreground" : "text-faint"
+      )}
     >
       {children}
     </div>

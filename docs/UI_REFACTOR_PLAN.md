@@ -473,7 +473,7 @@ first.
 - [x] **LoadingState** — primitive `skeleton`. Same API: `block` renders stacked
   skeleton bars, `inline` renders a single-row skeleton, and `label` stays as
   muted text. `Spinner` stays exported.
-- [ ] **RevealOnHover** — token classes only; behaviour unchanged.
+- [x] **RevealOnHover** — token classes only; behaviour unchanged.
 - [ ] Remove the manual `mounted` guards the Radix portals made unnecessary.
 - [ ] Verify: tsc, build. Owner opens every dialog and every Select/DatePicker
   inside a dialog, in both themes, and triggers a toast and the delete-task
