@@ -313,7 +313,12 @@ export default function DealsPage() {
               Deals {pipeline.length > 0 && <span className="text-muted-foreground">· {pipeline.length}</span>}
             </span>
           }
-        />
+        >
+          <Button size="sm" onClick={() => setShowForm(true)} aria-label="New Deal">
+            <Plus aria-hidden />
+            <span className="hidden sm:inline">New Deal</span>
+          </Button>
+        </PageHeader>
 
         <div className="space-y-4">
           {/* Controls */}
@@ -325,23 +330,17 @@ export default function DealsPage() {
               className="max-w-xs"
             />
 
-            <div className="flex items-center gap-2">
-              <Select
-                value={sort}
-                onChange={(v) => setSort(v as typeof sort)}
-                className="w-40"
-                options={[
-                  { label: "Newest", value: "createdAt" },
-                  { label: "Amount", value: "amount" },
-                  { label: "Close Date", value: "expectedCloseDate" },
-                ]}
-              />
-
-              <Button onClick={() => setShowForm(true)} className="whitespace-nowrap">
-                <Plus aria-hidden />
-                New Deal
-              </Button>
-            </div>
+            <Select
+              value={sort}
+              onChange={(v) => setSort(v as typeof sort)}
+              className="w-40"
+              align="right"
+              options={[
+                { label: "Newest", value: "createdAt" },
+                { label: "Amount", value: "amount" },
+                { label: "Close Date", value: "expectedCloseDate" },
+              ]}
+            />
           </div>
 
           {/* Create Deal dialog */}
