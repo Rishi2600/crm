@@ -3,8 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts";
-import Sidebar from "@/components/layout/Sidebar";
-import ThemeToggle from "@/components/layout/ThemeToggle";
+import { PageHeader } from "@/components/layout/PageHeader";
 import Select from "@/components/common/Select";
 import DatePicker from "@/components/common/DatePicker";
 import LoadingState from "@/components/common/LoadingState";
@@ -67,25 +66,25 @@ export default function AnalyticsPage() {
 
   useEffect(() => { fetchAnalytics(); }, [sort]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The shell (sidebar and top bar) is the (app) layout's now, so the
+  // loading and error states render only their own content.
   if (loading && !data) {
     return (
-      <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
-        <Sidebar />
-        <main className="flex-1 ml-52 flex items-center justify-center min-h-screen">
-          <LoadingState />
-        </main>
-      </div>
+      <>
+        <PageHeader title={<span className="font-medium text-foreground">Analytics</span>} />
+        <LoadingState />
+      </>
     );
   }
 
   if (error && !data) {
     return (
-      <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
-        <Sidebar />
-        <main className="flex-1 ml-52 flex items-center justify-center min-h-screen">
-          <span className="text-sm" style={{ color: "var(--red)" }}>{error}</span>
-        </main>
-      </div>
+      <>
+        <PageHeader title={<span className="font-medium text-foreground">Analytics</span>} />
+        <div className="flex items-center justify-center py-24">
+          <span className="text-sm text-destructive">{error}</span>
+        </div>
+      </>
     );
   }
 
@@ -93,15 +92,10 @@ export default function AnalyticsPage() {
   const maxFunnel = Math.max(...data.salesFunnel.map((f) => f.count), 1);
 
   return (
-    <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
-      <Sidebar />
-      <main className="flex-1 ml-52 min-h-screen">
-        <div className="h-14 flex items-center justify-between px-8" style={{ borderBottom: "1px solid var(--border)" }}>
-          <span className="text-sm font-medium" style={{ color: "var(--text)" }}>Analytics</span>
-          <ThemeToggle />
-        </div>
+    <>
+        <PageHeader title={<span className="font-medium text-foreground">Analytics</span>} />
 
-        <div className="p-8 space-y-6">
+        <div className="space-y-6">
           {/* Date range filter */}
           <div className="flex items-center gap-3">
             <DatePicker value={from} onChange={setFrom} placeholder="From" className="w-40" />
@@ -233,7 +227,6 @@ export default function AnalyticsPage() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+    </>
   );
 }

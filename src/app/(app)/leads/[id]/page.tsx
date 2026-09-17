@@ -14,8 +14,7 @@ import {
   Route as RouteIcon,
   Timer,
 } from "lucide-react";
-import Sidebar from "@/components/layout/Sidebar";
-import ThemeToggle from "@/components/layout/ThemeToggle";
+import { PageHeader } from "@/components/layout/PageHeader";
 import Select from "@/components/common/Select";
 import DatePicker from "@/components/common/DatePicker";
 import Dialog from "@/components/common/Dialog";
@@ -284,46 +283,55 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
+  // The shell (sidebar and top bar) is the (app) layout's now, so the
+  // loading and error states render only their own content. The back button
+  // sits in the top bar in every state, including while loading.
+  const backToLeads = (
+    <PageHeader
+      title={
+        <button
+          type="button"
+          onClick={() => router.push("/leads")}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft size={14} aria-hidden /> Leads
+        </button>
+      }
+    />
+  );
+
   if (loading) {
     return (
-      <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
-        <Sidebar />
-        <main className="flex-1 ml-52"><LoadingState label="Loading lead..." /></main>
-      </div>
+      <>
+        {backToLeads}
+        <LoadingState label="Loading lead..." />
+      </>
     );
   }
 
   if (error || !lead) {
     return (
-      <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
-        <Sidebar />
-        <main className="flex-1 ml-52 p-8">
+      <>
+        {backToLeads}
+        <div>
           <button onClick={() => router.push("/leads")} className="text-xs flex items-center gap-1.5 mb-4" style={{ color: "var(--text-muted)" }}>
             <ArrowLeft size={14} /> Back to Leads
           </button>
           <div className="px-3 py-2.5 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--red)" }}>
             {error || "Lead not found"}
           </div>
-        </main>
-      </div>
+        </div>
+      </>
     );
   }
 
   const historyEntries = historyView === "assignments" ? lead.assignmentTrail : lead.history;
 
   return (
-    <div className="min-h-screen flex" style={{ background: "var(--bg)" }}>
-      <Sidebar />
+    <>
+        {backToLeads}
 
-      <main className="flex-1 ml-52 min-h-screen">
-        <div className="h-14 flex items-center justify-between px-8" style={{ borderBottom: "1px solid var(--border)" }}>
-          <button onClick={() => router.push("/leads")} className="text-sm flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
-            <ArrowLeft size={14} /> Leads
-          </button>
-          <ThemeToggle />
-        </div>
-
-        <div className="p-8 space-y-5">
+        <div className="space-y-5">
           {/* Header */}
           <div className="p-5 rounded-xl flex items-start justify-between gap-4 flex-wrap" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
             <div className="flex items-start gap-6 flex-wrap">
@@ -624,8 +632,7 @@ export default function LeadDetailPage({ params }: { params: { id: string } }) {
             <TextInput placeholder="Notes (optional)" value={fuNotes} onChange={setFuNotes} />
           </div>
         </Dialog>
-      </main>
-    </div>
+    </>
   );
 }
 
