@@ -6,24 +6,43 @@ import {
   CalendarClock,
   ChevronRight,
   CircleSlash,
+  ExternalLink,
   Globe,
   RefreshCw,
   Repeat,
   Share2,
   ThumbsDown,
+  Plus,
+  Tag,
   UploadCloud,
   UserCheck,
   UserPlus,
   type LucideIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import InsightCard from "@/components/insights/InsightCard";
+import MetricStrip from "@/components/common/MetricStrip";
 import RevealOnHover, { RevealLine } from "@/components/common/RevealOnHover";
 import Select from "@/components/common/Select";
 import DatePicker from "@/components/common/DatePicker";
 import Dialog from "@/components/common/Dialog";
-import LoadingState from "@/components/common/LoadingState";
+import ErrorBanner from "@/components/common/ErrorBanner";
+import FilterPills from "@/components/common/FilterPills";
+import FollowUpFields from "@/components/common/FollowUpFields";
+import FormField from "@/components/common/FormField";
+import InitialsAvatar from "@/components/common/InitialsAvatar";
+import PaginationFooter from "@/components/common/PaginationFooter";
+import RowActionsMenu from "@/components/common/RowActionsMenu";
+import ScoreBar from "@/components/common/ScoreBar";
+import SearchInput from "@/components/common/SearchInput";
+import StatusBadge from "@/components/common/StatusBadge";
+import { TableMessageRow, TableSkeletonRows } from "@/components/common/TableStates";
+import { LEAD_STATUS_COLOR } from "@/components/common/statusColors";
 import { useToast } from "@/components/common/Toast";
+import LeadStatusFields from "@/components/leads/LeadStatusFields";
+import { Button } from "@/components/ui/button";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SUB_STATUS_BY_STATUS } from "@/lib/leads";
 import {
   LeadsApiResponse,
@@ -42,7 +61,7 @@ const EMPTY_SUMMARY: LeadSummary = {
 };
 
 // The KPI strip, in the reference's order. Same keys the Dashboard's Lead
-// Insights tab uses, rendered with the same InsightCard — one definition of
+// Insights tab uses, rendered with the same MetricStrip — one definition of
 // what a "Fresh Lead" is, shown in two places.
 const KPI_CARDS: { key: keyof LeadInsightKpis; title: string; icon: LucideIcon }[] = [
   { key: "totalLeads", title: "Total Leads", icon: Globe },
@@ -58,7 +77,7 @@ const KPI_CARDS: { key: keyof LeadInsightKpis; title: string; icon: LucideIcon }
 const ALL_STATUSES = Object.keys(SUB_STATUS_BY_STATUS) as LeadStatusLabel[];
 const ALL_SUB_STATUSES = Object.values(SUB_STATUS_BY_STATUS).flat();
 
-// 🚩 The pills ARE the status filter — there is no separate Status dropdown.
+// FLAG: the pills ARE the status filter — there is no separate Status dropdown.
 // The reference screenshot has both, but two controls writing one piece of
 // state is how you end up with a dropdown reading "Fresh" while the active
 // pill says "All". "Re-Enquired" is the exception: it's a cross-cutting
@@ -74,13 +93,8 @@ const PILLS: { label: string; value: string; key: keyof LeadSummary }[] = [
   { label: "RE-ENQUIRED", value: "reEnquired", key: "reEnquired" },
 ];
 
-const STATUS_COLOR: Record<string, string> = {
-  Fresh: "#2563eb",
-  Interested: "#d97706",
-  Converted: "var(--green)",
-  Closed: "var(--red)",
-  Irrelevant: "var(--text-faint)",
-};
+const SOURCES = ["Direct", "Referral", "Website", "Campaign", "Event", "Other"];
+const TABLE_COLUMNS = 7;
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString("en-US", {
@@ -160,6 +174,7 @@ export default function LeadsPage() {
   const [fuSaving, setFuSaving] = useState(false);
 
   const token = () => localStorage.getItem("crm-token");
+  const setField = (key: keyof typeof form) => (value: string) => setForm({ ...form, [key]: value });
 
   const fetchLeads = useCallback(async () => {
     const t = token();
@@ -212,7 +227,7 @@ export default function LeadsPage() {
         setKpis(json.kpis as LeadInsightKpis);
       }
     } catch {
-      // Non-fatal — the cards fall back to "—" rather than taking the table
+      // Non-fatal — the cells fall back to "—" rather than taking the table
       // down with them, since the table is the page's actual job.
     } finally {
       setKpisLoading(false);
@@ -224,7 +239,7 @@ export default function LeadsPage() {
 
   useEffect(() => { fetchKpis(); }, [fetchKpis]);
 
-  // Debounced search — 🚩 same fix as Contacts/Deals/Tasks/Follow-ups: skip
+  // Debounced search — FLAG: same fix as Contacts/Deals/Tasks/Follow-ups: skip
   // the mount-time run, since the effect above already fetches on first load.
   const isFirstSearchRun = useRef(true);
   useEffect(() => {
@@ -467,273 +482,233 @@ export default function LeadsPage() {
               Leads {total > 0 && <span className="text-muted-foreground">· {total}</span>}
             </span>
           }
-        />
+        >
+          <Button variant="outline" size="sm" onClick={openBulk} aria-label="Bulk Upload">
+            <UploadCloud aria-hidden />
+            <span className="hidden sm:inline">Bulk Upload</span>
+          </Button>
+          <Button size="sm" onClick={openForm} aria-label="Add Lead">
+            <Plus aria-hidden />
+            <span className="hidden sm:inline">Add Lead</span>
+          </Button>
+        </PageHeader>
 
-        <div className="space-y-5">
-          {/* KPI cards */}
-          <div>
-            <div className="grid gap-3 grid-cols-4">
-              {KPI_CARDS.map((card) => (
-                <InsightCard
-                  key={card.key}
-                  title={card.title}
-                  value={kpis ? kpis[card.key] : 0}
-                  icon={card.icon}
-                  loading={kpisLoading || !kpis}
-                />
-              ))}
-            </div>
-            <p className="text-xs mt-2" style={{ color: "var(--text-faint)" }}>
+        <div className="space-y-4">
+          {/* KPI strip */}
+          <div className="space-y-2">
+            <MetricStrip
+              perRow={4}
+              loading={kpisLoading}
+              metrics={KPI_CARDS.map((card) => ({
+                label: card.title,
+                value: kpis ? kpis[card.key].toLocaleString() : "—",
+                icon: card.icon,
+              }))}
+            />
+            <p className="text-xs text-faint">
               These cards cover every lead you have access to, not the filters below — the pill counts are the filtered numbers.
             </p>
           </div>
 
           {/* Filters */}
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="relative w-64">
-                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
-                  className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }}>
-                  <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-                </svg>
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by name, email, phone..."
-                  className="w-full pl-9 pr-3 py-2 rounded-lg text-sm"
-                  style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-                />
-              </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search by name, email, phone..."
+              className="w-full sm:w-56"
+            />
 
-              <Select
-                value={subStatus}
-                onChange={(v) => { setSubStatus(v); setPage(1); }}
-                placeholder="Sub-Status"
-                className="w-44"
-                options={[{ label: "All sub-statuses", value: "" }, ...subStatusOptions.map((s) => ({ label: s, value: s }))]}
-              />
+            <Select
+              value={subStatus}
+              onChange={(v) => { setSubStatus(v); setPage(1); }}
+              placeholder="Sub-Status"
+              className="w-40"
+              options={[{ label: "All sub-statuses", value: "" }, ...subStatusOptions.map((s) => ({ label: s, value: s }))]}
+            />
 
-              <Select
-                value={source}
-                onChange={(v) => { setSource(v); setPage(1); }}
-                placeholder="Source"
-                className="w-36"
-                options={[
-                  { label: "All sources", value: "" },
-                  ...["Direct", "Referral", "Website", "Campaign", "Event", "Other"].map((s) => ({ label: s, value: s })),
-                ]}
-              />
+            <Select
+              value={source}
+              onChange={(v) => { setSource(v); setPage(1); }}
+              placeholder="Source"
+              className="w-32"
+              options={[
+                { label: "All sources", value: "" },
+                ...SOURCES.map((s) => ({ label: s, value: s })),
+              ]}
+            />
 
-              <Select
-                value={agent}
-                onChange={(v) => { setAgent(v); setPage(1); }}
-                placeholder="Agent"
-                className="w-40"
-                options={[{ label: "All agents", value: "" }, ...agents.map((a) => ({ label: a.name, value: a.id }))]}
-              />
+            <Select
+              value={agent}
+              onChange={(v) => { setAgent(v); setPage(1); }}
+              placeholder="Agent"
+              className="w-36"
+              options={[{ label: "All agents", value: "" }, ...agents.map((a) => ({ label: a.name, value: a.id }))]}
+            />
 
-              <input
-                value={location}
-                onChange={(e) => { setLocation(e.target.value); setPage(1); }}
-                placeholder="Location"
-                className="w-32 px-3 py-2 rounded-lg text-sm"
-                style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-              />
+            <Input
+              value={location}
+              onChange={(e) => { setLocation(e.target.value); setPage(1); }}
+              placeholder="Location"
+              aria-label="Location"
+              className="w-28"
+            />
 
-              <DatePicker value={from} onChange={(v) => { setFrom(v); setPage(1); }} placeholder="From" className="w-36" />
-              <DatePicker value={to} onChange={(v) => { setTo(v); setPage(1); }} placeholder="To" className="w-36" />
+            <DatePicker value={from} onChange={(v) => { setFrom(v); setPage(1); }} placeholder="From" className="w-36" />
+            <DatePicker value={to} onChange={(v) => { setTo(v); setPage(1); }} placeholder="To" className="w-36" />
 
-              {hasFilters && (
-                <button onClick={clearFilters} className="px-3 py-2 rounded-lg text-xs" style={{ color: "var(--text-muted)" }}>
-                  Clear
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Select
-                value={sort}
-                onChange={setSort}
-                className="w-44"
-                align="right"
-                options={[
-                  { label: "Newest first", value: "createdAt" },
-                  { label: "Oldest first", value: "createdAtAsc" },
-                  { label: "Name (A–Z)", value: "name" },
-                  { label: "Highest score", value: "leadScore" },
-                ]}
-              />
-              <button
-                onClick={openBulk}
-                className="px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap flex items-center gap-1.5"
-                style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)" }}
-              >
-                <UploadCloud size={13} strokeWidth={1.8} />
-                Bulk Upload
-              </button>
-              <button
-                onClick={openForm}
-                className="px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap"
-                style={{ background: "var(--text)", color: "var(--bg)" }}
-              >
-                + Add Lead
-              </button>
-            </div>
+            {hasFilters && (
+              <Button variant="ghost" onClick={clearFilters} className="text-muted-foreground">
+                Clear
+              </Button>
+            )}
           </div>
 
-          {/* Status pills */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {PILLS.map((p) => {
-              const isActive = pill === p.value;
-              return (
-                <button
-                  key={p.value}
-                  onClick={() => {
-                    setPill(p.value);
-                    // A sub-status that isn't legal under the new status would
-                    // silently return nothing, so it's dropped on the switch.
-                    setSubStatus("");
-                    setPage(1);
-                  }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                  style={{
-                    background: isActive ? "var(--text)" : "var(--bg-subtle)",
-                    color: isActive ? "var(--bg)" : "var(--text-muted)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  {p.label} ({summary[p.key]})
-                </button>
-              );
-            })}
+          {/* Status pills, with the sort on the right */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <FilterPills
+              label="Filter by status"
+              value={pill}
+              onChange={(value) => {
+                setPill(value);
+                // A sub-status that isn't legal under the new status would
+                // silently return nothing, so it's dropped on the switch.
+                setSubStatus("");
+                setPage(1);
+              }}
+              options={PILLS.map((p) => ({ label: p.label, value: p.value, count: summary[p.key] }))}
+            />
+            <Select
+              value={sort}
+              onChange={setSort}
+              className="w-44"
+              align="right"
+              options={[
+                { label: "Newest first", value: "createdAt" },
+                { label: "Oldest first", value: "createdAtAsc" },
+                { label: "Name (A–Z)", value: "name" },
+                { label: "Highest score", value: "leadScore" },
+              ]}
+            />
           </div>
 
-          {error && (
-            <div className="px-3 py-2.5 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--red)" }}>
-              {error}
-            </div>
-          )}
+          {error && <ErrorBanner>{error}</ErrorBanner>}
 
           {/* Table */}
-          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-            <div className="grid grid-cols-12 px-4 py-2.5 text-xs font-medium" style={{
-              background: "var(--bg-subtle)", borderBottom: "1px solid var(--border)", color: "var(--text-muted)",
-            }}>
-              <div className="col-span-3">Name</div>
-              <div className="col-span-2">Status</div>
-              <div className="col-span-1 text-center">Score</div>
-              <div className="col-span-2">Next Follow-up</div>
-              <div className="col-span-2">Agent</div>
-              <div className="col-span-1">Source</div>
-              <div className="col-span-1 text-center">Open</div>
-            </div>
+          <div className="overflow-hidden rounded-xl border bg-card">
+            <Table className="min-w-[880px]">
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead className="px-4 text-xs">Name</TableHead>
+                  <TableHead className="px-4 text-xs">Status</TableHead>
+                  <TableHead className="px-4 text-xs">Score</TableHead>
+                  <TableHead className="px-4 text-xs">Next Follow-up</TableHead>
+                  <TableHead className="px-4 text-xs">Agent</TableHead>
+                  <TableHead className="px-4 text-xs">Source</TableHead>
+                  <TableHead className="px-4 text-right text-xs">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading && <TableSkeletonRows columns={TABLE_COLUMNS} />}
 
-            {loading && <LoadingState variant="inline" />}
+                {!loading && !error && leads.length === 0 && (
+                  <TableMessageRow colSpan={TABLE_COLUMNS}>No leads found</TableMessageRow>
+                )}
 
-            {!loading && !error && leads.length === 0 && (
-              <div className="px-4 py-10 text-center text-xs" style={{ color: "var(--text-muted)" }}>
-                No leads found
-              </div>
+                {!loading && !error && leads.map((lead) => (
+                  // `group/row` drives the RevealOnHover cell below — in CSS, not
+                  // React state, so hovering down a 20-row table re-renders nothing.
+                  <TableRow key={lead.id} className="group/row">
+                    <TableCell className="max-w-[260px] px-4 py-3">
+                      <div className="flex items-start gap-3">
+                        <InitialsAvatar name={lead.name} />
+                        <div className="min-w-0 flex-1 pt-1">
+                          <RevealOnHover primary={<span className="font-medium">{lead.name}</span>}>
+                            <RevealLine>{lead.phone ?? "—"} · {lead.email}</RevealLine>
+                            <RevealLine tone="faint">
+                              {lead.company ?? "No company"} · {lead.leadAge}d old
+                              {lead.reEnquiryCount > 0 && ` · re-enquired ${lead.reEnquiryCount}×`}
+                            </RevealLine>
+                          </RevealOnHover>
+                        </div>
+                      </div>
+                    </TableCell>
+
+                    {/* Status is the button — clicking it opens the change prompt,
+                        so a lead can be moved without leaving the list. */}
+                    <TableCell className="px-4 py-3">
+                      <button type="button" onClick={() => openStatus(lead)} className="rounded-md text-left" title="Change status">
+                        <StatusBadge color={LEAD_STATUS_COLOR[lead.status]}>{lead.status}</StatusBadge>
+                        <div className="mt-1 text-xs text-muted-foreground">{lead.subStatus}</div>
+                      </button>
+                    </TableCell>
+
+                    <TableCell className="px-4 py-3">
+                      <ScoreBar value={lead.leadScore} />
+                    </TableCell>
+
+                    <TableCell className="px-4 py-3 text-xs text-muted-foreground">
+                      {lead.nextFollowUpAt ? formatWhen(lead.nextFollowUpAt) : "Not Scheduled"}
+                      <button
+                        type="button"
+                        onClick={() => openFollowUp(lead)}
+                        aria-label={`Schedule follow-up with ${lead.name}`}
+                        title="Schedule follow-up"
+                        className="mt-1 flex items-center gap-1 rounded-sm text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        <CalendarClock className="size-3.5" aria-hidden />
+                        <span>Schedule</span>
+                      </button>
+                    </TableCell>
+
+                    <TableCell className="max-w-[160px] truncate px-4 py-3 text-xs text-muted-foreground">
+                      {lead.agentName}
+                    </TableCell>
+
+                    <TableCell className="max-w-[140px] truncate px-4 py-3 text-xs text-muted-foreground">
+                      {lead.sourceName ?? lead.source}
+                    </TableCell>
+
+                    <TableCell className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <RowActionsMenu label={`Actions for ${lead.name}`}>
+                          <DropdownMenuItem onSelect={() => router.push(`/leads/${lead.id}`)}>
+                            <ExternalLink aria-hidden />
+                            Open
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onSelect={() => openStatus(lead)}>
+                            <Tag aria-hidden />
+                            Change status
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => openFollowUp(lead)}>
+                            <CalendarClock aria-hidden />
+                            Schedule follow-up
+                          </DropdownMenuItem>
+                        </RowActionsMenu>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8 text-muted-foreground"
+                          onClick={() => router.push(`/leads/${lead.id}`)}
+                          aria-label={`Open ${lead.name}`}
+                        >
+                          <ChevronRight aria-hidden />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            {/* Pagination */}
+            {!loading && !error && total > 0 && (
+              <PaginationFooter page={page} totalPages={totalPages} total={total} onPageChange={setPage} />
             )}
-
-            {!loading && !error && leads.map((lead, i) => (
-              // `group/row` drives the RevealOnHover cell below — in CSS, not
-              // React state, so hovering down a 20-row table re-renders nothing.
-              <div
-                key={lead.id}
-                className="group/row grid grid-cols-12 px-4 py-3 text-sm items-center"
-                style={{ borderBottom: i < leads.length - 1 ? "1px solid var(--border)" : "none" }}
-              >
-                <div className="col-span-3 min-w-0">
-                  <RevealOnHover primary={lead.name}>
-                    <RevealLine>{lead.phone ?? "—"} · {lead.email}</RevealLine>
-                    <RevealLine tone="faint">
-                      {lead.company ?? "No company"} · {lead.leadAge}d old
-                      {lead.reEnquiryCount > 0 && ` · re-enquired ${lead.reEnquiryCount}×`}
-                    </RevealLine>
-                  </RevealOnHover>
-                </div>
-
-                {/* Status is the button — clicking it opens the change prompt,
-                    so a lead can be moved without leaving the list. */}
-                <div className="col-span-2">
-                  <button onClick={() => openStatus(lead)} className="text-left" title="Change status">
-                    <span
-                      className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full"
-                      style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)" }}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: STATUS_COLOR[lead.status] }} />
-                      <span style={{ color: "var(--text)" }}>{lead.status}</span>
-                    </span>
-                    <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{lead.subStatus}</div>
-                  </button>
-                </div>
-
-                <div className="col-span-1 text-center text-xs tabular-nums" style={{ color: "var(--text)" }}>
-                  {lead.leadScore}
-                </div>
-
-                <div className="col-span-2 text-xs" style={{ color: "var(--text-muted)" }}>
-                  {lead.nextFollowUpAt ? formatWhen(lead.nextFollowUpAt) : "Not Scheduled"}
-                  <button
-                    onClick={() => openFollowUp(lead)}
-                    aria-label={`Schedule follow-up with ${lead.name}`}
-                    title="Schedule follow-up"
-                    className="mt-1 flex items-center gap-1"
-                    style={{ color: "var(--text-faint)" }}
-                  >
-                    <CalendarClock size={13} strokeWidth={1.8} />
-                    <span className="text-xs">Schedule</span>
-                  </button>
-                </div>
-
-                <div className="col-span-2 text-xs truncate" style={{ color: "var(--text-muted)" }}>
-                  {lead.agentName}
-                </div>
-
-                <div className="col-span-1 text-xs truncate" style={{ color: "var(--text-muted)" }}>
-                  {lead.sourceName ?? lead.source}
-                </div>
-
-                <div className="col-span-1 flex justify-center">
-                  <button
-                    onClick={() => router.push(`/leads/${lead.id}`)}
-                    aria-label={`Open ${lead.name}`}
-                    style={{ color: "var(--text-faint)" }}
-                  >
-                    <ChevronRight size={16} strokeWidth={1.8} />
-                  </button>
-                </div>
-              </div>
-            ))}
           </div>
-
-          {/* Pagination */}
-          {!loading && !error && total > 0 && (
-            <div className="flex items-center justify-between">
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Page {page} of {totalPages} · Count: {total}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="px-3 py-1.5 rounded-lg text-xs"
-                  style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", opacity: page === 1 ? 0.4 : 1 }}
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="px-3 py-1.5 rounded-lg text-xs"
-                  style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", opacity: page === totalPages ? 0.4 : 1 }}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ── Add Lead ─────────────────────────────────────────────────────── */}
@@ -745,67 +720,92 @@ export default function LeadsPage() {
           maxWidth="560px"
           footer={
             <>
-              <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+              <Button variant="ghost" onClick={() => setShowForm(false)}>
                 Cancel
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={submitting}
-                className="px-4 py-2 rounded-lg text-xs font-medium"
-                style={{ background: "var(--text)", color: "var(--bg)", opacity: submitting ? 0.5 : 1 }}
-              >
+              </Button>
+              <Button onClick={handleCreate} disabled={submitting}>
                 {submitting ? "Creating..." : "Create Lead"}
-              </button>
+              </Button>
             </>
           }
         >
-          {formError && (
-            <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
-              {formError}
+          {formError && <ErrorBanner className="mb-4">{formError}</ErrorBanner>}
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="First name *" htmlFor="lead-first-name">
+                <Input id="lead-first-name" value={form.firstName} onChange={(e) => setField("firstName")(e.target.value)} />
+              </FormField>
+              <FormField label="Last name *" htmlFor="lead-last-name">
+                <Input id="lead-last-name" value={form.lastName} onChange={(e) => setField("lastName")(e.target.value)} />
+              </FormField>
             </div>
-          )}
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <FormInput placeholder="First name *" value={form.firstName} onChange={(v) => setForm({ ...form, firstName: v })} />
-              <FormInput placeholder="Last name *" value={form.lastName} onChange={(v) => setForm({ ...form, lastName: v })} />
+            <FormField label="Email *" htmlFor="lead-email">
+              <Input id="lead-email" value={form.email} onChange={(e) => setField("email")(e.target.value)} />
+            </FormField>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Phone" htmlFor="lead-phone">
+                <Input id="lead-phone" value={form.phone} onChange={(e) => setField("phone")(e.target.value)} />
+              </FormField>
+              <FormField label="Company" htmlFor="lead-company">
+                <Input id="lead-company" value={form.companyName} onChange={(e) => setField("companyName")(e.target.value)} />
+              </FormField>
             </div>
-            <FormInput placeholder="Email *" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
-            <div className="grid grid-cols-2 gap-3">
-              <FormInput placeholder="Phone" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
-              <FormInput placeholder="Company" value={form.companyName} onChange={(v) => setForm({ ...form, companyName: v })} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Status" htmlFor="lead-status">
+                <Select
+                  id="lead-status"
+                  value={formStatus}
+                  onChange={(v) => {
+                    const s = v as LeadStatusLabel;
+                    setFormStatus(s);
+                    setFormSubStatus(SUB_STATUS_BY_STATUS[s][0]);
+                  }}
+                  options={ALL_STATUSES.map((s) => ({ label: s, value: s }))}
+                />
+              </FormField>
+              <FormField label="Sub-status" htmlFor="lead-sub-status">
+                <Select
+                  id="lead-sub-status"
+                  value={formSubStatus}
+                  onChange={(v) => setFormSubStatus(v as LeadSubStatusLabel)}
+                  options={SUB_STATUS_BY_STATUS[formStatus].map((s) => ({ label: s, value: s }))}
+                />
+              </FormField>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Select
-                value={formStatus}
-                onChange={(v) => {
-                  const s = v as LeadStatusLabel;
-                  setFormStatus(s);
-                  setFormSubStatus(SUB_STATUS_BY_STATUS[s][0]);
-                }}
-                options={ALL_STATUSES.map((s) => ({ label: s, value: s }))}
-              />
-              <Select
-                value={formSubStatus}
-                onChange={(v) => setFormSubStatus(v as LeadSubStatusLabel)}
-                options={SUB_STATUS_BY_STATUS[formStatus].map((s) => ({ label: s, value: s }))}
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="Source" htmlFor="lead-source">
+                <Select
+                  id="lead-source"
+                  value={formSource}
+                  onChange={setFormSource}
+                  options={SOURCES.map((s) => ({ label: s, value: s }))}
+                />
+              </FormField>
+              <FormField label="Source name" htmlFor="lead-source-name">
+                <Input id="lead-source-name" placeholder="e.g. The Tribune" value={form.sourceName} onChange={(e) => setField("sourceName")(e.target.value)} />
+              </FormField>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Select
-                value={formSource}
-                onChange={setFormSource}
-                options={["Direct", "Referral", "Website", "Campaign", "Event", "Other"].map((s) => ({ label: s, value: s }))}
-              />
-              <FormInput placeholder="Source name (e.g. The Tribune)" value={form.sourceName} onChange={(v) => setForm({ ...form, sourceName: v })} />
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <Select
-                value={formTemperature}
-                onChange={setFormTemperature}
-                options={["Hot", "Warm", "Cold"].map((s) => ({ label: s, value: s }))}
-              />
-              <FormInput placeholder="Location" value={form.location} onChange={(v) => setForm({ ...form, location: v })} />
-              <FormInput placeholder="Score 0–100" value={form.leadScore} onChange={(v) => setForm({ ...form, leadScore: v.replace(/[^0-9]/g, "") })} />
+            <div className="grid gap-4 sm:grid-cols-3">
+              <FormField label="Temperature" htmlFor="lead-temperature">
+                <Select
+                  id="lead-temperature"
+                  value={formTemperature}
+                  onChange={setFormTemperature}
+                  options={["Hot", "Warm", "Cold"].map((s) => ({ label: s, value: s }))}
+                />
+              </FormField>
+              <FormField label="Location" htmlFor="lead-location">
+                <Input id="lead-location" value={form.location} onChange={(e) => setField("location")(e.target.value)} />
+              </FormField>
+              <FormField label="Score" htmlFor="lead-score">
+                <Input
+                  id="lead-score"
+                  inputMode="numeric"
+                  placeholder="0–100"
+                  value={form.leadScore}
+                  onChange={(e) => setField("leadScore")(e.target.value.replace(/[^0-9]/g, ""))}
+                />
+              </FormField>
             </div>
           </div>
         </Dialog>
@@ -819,46 +819,37 @@ export default function LeadsPage() {
           maxWidth="560px"
           footer={
             <>
-              <button onClick={() => setShowBulk(false)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+              <Button variant="ghost" onClick={() => setShowBulk(false)}>
                 {bulkResult ? "Close" : "Cancel"}
-              </button>
+              </Button>
               {!bulkResult && (
-                <button
-                  onClick={handleUpload}
-                  disabled={uploading || !csvText}
-                  className="px-4 py-2 rounded-lg text-xs font-medium"
-                  style={{ background: "var(--text)", color: "var(--bg)", opacity: uploading || !csvText ? 0.5 : 1 }}
-                >
+                <Button onClick={handleUpload} disabled={uploading || !csvText}>
                   {uploading ? "Importing..." : "Import"}
-                </button>
+                </Button>
               )}
             </>
           }
         >
-          {bulkError && (
-            <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
-              {bulkError}
-            </div>
-          )}
+          {bulkError && <ErrorBanner className="mb-4">{bulkError}</ErrorBanner>}
 
           {!bulkResult ? (
             <div className="space-y-3">
-              <button onClick={downloadTemplate} className="text-xs underline" style={{ color: "var(--text-muted)" }}>
+              <Button variant="link" onClick={downloadTemplate} className="h-auto p-0 text-xs text-muted-foreground">
                 Download the CSV template
-              </button>
+              </Button>
 
               <label
-                className="flex flex-col items-center justify-center gap-2 py-8 rounded-xl cursor-pointer"
-                style={{ background: "var(--bg-subtle)", border: "1px dashed var(--border)" }}
+                className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/40 py-8 transition-colors
+                           hover:bg-muted focus-within:ring-1 focus-within:ring-ring"
               >
-                <UploadCloud size={20} strokeWidth={1.6} style={{ color: "var(--text-muted)" }} />
-                <span className="text-xs" style={{ color: "var(--text)" }}>
+                <UploadCloud className="size-5 text-muted-foreground" aria-hidden />
+                <span className="text-xs text-foreground">
                   {csvName || "Choose a .csv file"}
                 </span>
-                <span className="text-xs" style={{ color: "var(--text-faint)" }}>
+                <span className="text-xs text-faint">
                   First name, last name and email are required
                 </span>
-                <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={handleFile} className="hidden" />
+                <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={handleFile} className="sr-only" />
               </label>
             </div>
           ) : (
@@ -867,21 +858,17 @@ export default function LeadsPage() {
             // without guessing which rows went in.
             <div className="space-y-3">
               <div className="flex items-center gap-4 text-xs">
-                <span style={{ color: "var(--green)" }}>{bulkResult.created} imported</span>
-                {bulkResult.failed > 0 && <span style={{ color: "var(--red)" }}>{bulkResult.failed} skipped</span>}
+                <span className="text-success">{bulkResult.created} imported</span>
+                {bulkResult.failed > 0 && <span className="text-danger">{bulkResult.failed} skipped</span>}
               </div>
 
               {bulkResult.errors.length > 0 && (
-                <div className="rounded-lg max-h-64 overflow-y-auto" style={{ border: "1px solid var(--border)" }}>
+                <div className="max-h-64 divide-y overflow-y-auto rounded-lg border">
                   {bulkResult.errors.map((e: BulkUploadRowError, i) => (
-                    <div
-                      key={`${e.row}-${i}`}
-                      className="px-3 py-2 text-xs"
-                      style={{ borderBottom: i < bulkResult.errors.length - 1 ? "1px solid var(--border)" : "none" }}
-                    >
-                      <span style={{ color: "var(--text)" }}>Row {e.row}</span>
-                      <span style={{ color: "var(--text-muted)" }}> · {e.name}</span>
-                      <div style={{ color: "var(--red)" }}>{e.reason}</div>
+                    <div key={`${e.row}-${i}`} className="px-3 py-2 text-xs">
+                      <span className="text-foreground">Row {e.row}</span>
+                      <span className="text-muted-foreground"> · {e.name}</span>
+                      <div className="text-danger">{e.reason}</div>
                     </div>
                   ))}
                 </div>
@@ -898,46 +885,26 @@ export default function LeadsPage() {
           description={statusFor ? `Move ${statusFor.name} to a new status. A remark is required.` : ""}
           footer={
             <>
-              <button onClick={() => setStatusFor(null)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+              <Button variant="ghost" onClick={() => setStatusFor(null)}>
                 Cancel
-              </button>
-              <button
-                onClick={handleStatusChange}
-                disabled={statusSaving}
-                className="px-4 py-2 rounded-lg text-xs font-medium"
-                style={{ background: "var(--text)", color: "var(--bg)", opacity: statusSaving ? 0.5 : 1 }}
-              >
+              </Button>
+              <Button onClick={handleStatusChange} disabled={statusSaving}>
                 {statusSaving ? "Saving..." : "Save & Record"}
-              </button>
+              </Button>
             </>
           }
         >
-          {statusError && (
-            <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
-              {statusError}
-            </div>
-          )}
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <Select value={newStatus} onChange={pickStatus} options={ALL_STATUSES.map((s) => ({ label: s, value: s }))} />
-              <Select
-                value={newSubStatus}
-                onChange={(v) => setNewSubStatus(v as LeadSubStatusLabel)}
-                options={SUB_STATUS_BY_STATUS[newStatus].map((s) => ({ label: s, value: s }))}
-              />
-            </div>
-            <textarea
-              value={remark}
-              onChange={(e) => setRemark(e.target.value)}
-              placeholder="Record what happened — why is this lead moving? *"
-              rows={3}
-              className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-              style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-            />
-            <p className="text-xs" style={{ color: "var(--text-faint)" }}>
-              This is saved onto the lead&apos;s history against this exact change.
-            </p>
-          </div>
+          {statusError && <ErrorBanner className="mb-4">{statusError}</ErrorBanner>}
+          <LeadStatusFields
+            idPrefix="list-status"
+            status={newStatus}
+            onStatusChange={pickStatus}
+            subStatus={newSubStatus}
+            onSubStatusChange={setNewSubStatus}
+            remark={remark}
+            onRemarkChange={setRemark}
+            hint="This is saved onto the lead's history against this exact change."
+          />
         </Dialog>
 
         {/* ── Schedule follow-up ───────────────────────────────────────────── */}
@@ -948,53 +915,26 @@ export default function LeadsPage() {
           description={followUpFor ? `Book a follow-up with ${followUpFor.name}.` : ""}
           footer={
             <>
-              <button onClick={() => setFollowUpFor(null)} className="px-4 py-2 rounded-lg text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+              <Button variant="ghost" onClick={() => setFollowUpFor(null)}>
                 Cancel
-              </button>
-              <button
-                onClick={handleScheduleFollowUp}
-                disabled={fuSaving}
-                className="px-4 py-2 rounded-lg text-xs font-medium"
-                style={{ background: "var(--text)", color: "var(--bg)", opacity: fuSaving ? 0.5 : 1 }}
-              >
+              </Button>
+              <Button onClick={handleScheduleFollowUp} disabled={fuSaving}>
                 {fuSaving ? "Scheduling..." : "Schedule"}
-              </button>
+              </Button>
             </>
           }
         >
-          {fuError && (
-            <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
-              {fuError}
-            </div>
-          )}
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <DatePicker value={fuDate} onChange={setFuDate} placeholder="Follow-up date" />
-              <input
-                type="time"
-                value={fuTime}
-                onChange={(e) => setFuTime(e.target.value)}
-                className="px-3 py-2 rounded-lg text-sm"
-                style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-              />
-            </div>
-            <FormInput placeholder="Notes (optional)" value={fuNotes} onChange={setFuNotes} />
-          </div>
+          {fuError && <ErrorBanner className="mb-4">{fuError}</ErrorBanner>}
+          <FollowUpFields
+            idPrefix="list-follow-up"
+            date={fuDate}
+            onDateChange={setFuDate}
+            time={fuTime}
+            onTimeChange={setFuTime}
+            notes={fuNotes}
+            onNotesChange={setFuNotes}
+          />
         </Dialog>
     </>
-  );
-}
-
-/** The one text input every dialog on this page uses — keeps 12 identical
- *  style objects from being pasted 12 times. */
-function FormInput({ placeholder, value, onChange }: { placeholder: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <input
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="w-full px-3 py-2 rounded-lg text-sm"
-      style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-    />
   );
 }

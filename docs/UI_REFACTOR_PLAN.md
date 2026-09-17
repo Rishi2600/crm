@@ -532,7 +532,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
   wrapping over two rows.
 - [x] `DateRangeFilter`, and `TrendsChart` → area chart (previous-period line
   only if Q3 is approved).
-- [ ] `MetricCard` and `InsightCard` → the metric-strip cell component, or
+- [x] `MetricCard` and `InsightCard` → the metric-strip cell component, or
   deleted if unused.
 - [x] Skeletons in the final shape for each block.
 - [x] Verify, then report.
@@ -550,18 +550,18 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
 
 ### Phase 7: Leads
 
-- [ ] **List:** metric strip; filter bar; pills; `table` primitive with avatar +
+- [x] **List:** metric strip; filter bar; pills; `table` primitive with avatar +
   RevealOnHover names (still plain text), status badge with dot, score bar,
   next follow-up with Schedule, agent, source; row-actions `dropdown-menu`
   (Open, Change status, Schedule follow-up), while the Status cell stays
   clickable; footer.
-- [ ] **List dialogs:** Add Lead, Bulk Upload (file input, template download,
+- [x] **List dialogs:** Add Lead, Bulk Upload (file input, template download,
   report), Change status, Schedule follow-up.
 - [x] **Detail:** header card; metric strip; Personal Details; Last Lead Remark;
   recent activity; all five dialogs, including history and the assignment
   trail.
-- [ ] Skeletons.
-- [ ] Verify, then report.
+- [x] Skeletons.
+- [x] Verify, then report.
 
 ### Phase 8: Follow-ups, Contacts, Tasks
 
