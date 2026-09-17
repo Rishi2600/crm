@@ -2,15 +2,35 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { ListChecks, Plus, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import Select from "@/components/common/Select";
 import DatePicker from "@/components/common/DatePicker";
 import Dialog from "@/components/common/Dialog";
-import LoadingState from "@/components/common/LoadingState";
+import ErrorBanner from "@/components/common/ErrorBanner";
+import FormField from "@/components/common/FormField";
+import InitialsAvatar from "@/components/common/InitialsAvatar";
 import RevealOnHover, { RevealLine } from "@/components/common/RevealOnHover";
+import RowActionsMenu from "@/components/common/RowActionsMenu";
+import SearchInput from "@/components/common/SearchInput";
+import StatusBadge from "@/components/common/StatusBadge";
+import { TableMessageRow, TableSkeletonRows } from "@/components/common/TableStates";
+import { PRIORITY_COLOR } from "@/components/common/statusColors";
 import { useToast } from "@/components/common/Toast";
 import { useConfirm } from "@/components/common/ConfirmDialog";
-import { Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TasksApiResponse, TaskResponse, AssignableUser } from "@/types/tasks";
 
 const FILTERS = [
@@ -20,11 +40,7 @@ const FILTERS = [
   { label: "Completed", value: "completed" },
 ];
 
-const PRIORITY_COLOR: Record<string, string> = {
-  High: "var(--red)",
-  Medium: "#d97706",
-  Low: "var(--text-muted)",
-};
+const TABLE_COLUMNS = 7;
 
 const STATUS_OPTIONS = ["To Do", "In Progress", "Completed"];
 
@@ -105,7 +121,7 @@ export default function TasksPage() {
   useEffect(() => { fetchTasks(); }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { fetchAssignableUsers(); }, [fetchAssignableUsers]);
 
-  // Debounced search — 🚩 same fix as Contacts/Deals: skip the mount-time
+  // Debounced search — FLAG: same fix as Contacts/Deals: skip the mount-time
   // run, since the effect above already fetches on initial load.
   const isFirstSearchRun = useRef(true);
   useEffect(() => {
@@ -211,44 +227,32 @@ export default function TasksPage() {
               Tasks {total > 0 && <span className="text-muted-foreground">· {total}</span>}
             </span>
           }
-        />
+        >
+          <Button size="sm" onClick={() => setShowForm(true)} aria-label="New Task">
+            <Plus aria-hidden />
+            <span className="hidden sm:inline">New Task</span>
+          </Button>
+        </PageHeader>
 
-        <div>
+        {/* One panel whose value always follows the filter: the tabs only
+            change the query, so there is a single table to show. */}
+        <Tabs value={filter} onValueChange={setFilter} className="space-y-4">
           {/* Controls */}
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: "var(--bg-subtle)" }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <TabsList className="h-auto flex-wrap">
               {FILTERS.map((f) => (
-                <button
-                  key={f.value}
-                  onClick={() => setFilter(f.value)}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
-                  style={{
-                    background: filter === f.value ? "var(--bg-card)" : "transparent",
-                    color: filter === f.value ? "var(--text)" : "var(--text-muted)",
-                    border: filter === f.value ? "1px solid var(--border)" : "1px solid transparent",
-                  }}
-                >
+                <TabsTrigger key={f.value} value={f.value} className="text-xs">
                   {f.label}
-                </button>
+                </TabsTrigger>
               ))}
-            </div>
+            </TabsList>
 
-            <div className="flex items-center gap-3">
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search tasks..."
-                className="px-3 py-2 rounded-lg text-sm w-56"
-                style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-              />
-              <button
-                onClick={() => setShowForm(true)}
-                className="px-3 py-2 rounded-lg text-xs font-medium"
-                style={{ background: "var(--text)", color: "var(--bg)" }}
-              >
-                + New Task
-              </button>
-            </div>
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search tasks..."
+              className="sm:w-56"
+            />
           </div>
 
           {/* Create Task dialog — built as a generic, reusable Dialog so the
@@ -261,126 +265,159 @@ export default function TasksPage() {
             description="Create and assign a task to yourself or a direct report."
             footer={
               <>
-                <button
-                  onClick={() => setShowForm(false)}
-                  className="px-4 py-2 rounded-lg text-xs font-medium"
-                  style={{ color: "var(--text-muted)" }}
-                >
+                <Button variant="ghost" onClick={() => setShowForm(false)}>
                   Cancel
-                </button>
-                <button
-                  onClick={handleCreateTask}
-                  disabled={submitting}
-                  className="px-4 py-2 rounded-lg text-xs font-medium"
-                  style={{ background: "var(--text)", color: "var(--bg)", opacity: submitting ? 0.5 : 1 }}
-                >
+                </Button>
+                <Button onClick={handleCreateTask} disabled={submitting}>
                   {submitting ? "Creating..." : "Create Task"}
-                </button>
+                </Button>
               </>
             }
           >
-            {formError && (
-              <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", color: "var(--red)" }}>
-                {formError}
-              </div>
-            )}
-            <div className="space-y-3">
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Task title"
-                className="w-full px-3 py-2 rounded-lg text-sm"
-                style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-              />
-              <input
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Description (optional)"
-                className="w-full px-3 py-2 rounded-lg text-sm"
-                style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <Select
-                  value={priority}
-                  onChange={setPriority}
-                  options={[
-                    { label: "High", value: "High" },
-                    { label: "Medium", value: "Medium" },
-                    { label: "Low", value: "Low" },
-                  ]}
+            {formError && <ErrorBanner className="mb-4">{formError}</ErrorBanner>}
+            <div className="space-y-4">
+              <FormField label="Title" htmlFor="task-title">
+                <Input id="task-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Task title" />
+              </FormField>
+              <FormField label="Description" htmlFor="task-description">
+                <Input
+                  id="task-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Optional"
                 />
-                <DatePicker value={dueDate} onChange={setDueDate} placeholder="Due date" />
+              </FormField>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Priority" htmlFor="task-priority">
+                  <Select
+                    id="task-priority"
+                    value={priority}
+                    onChange={setPriority}
+                    options={[
+                      { label: "High", value: "High" },
+                      { label: "Medium", value: "Medium" },
+                      { label: "Low", value: "Low" },
+                    ]}
+                  />
+                </FormField>
+                <FormField label="Due date" htmlFor="task-due-date">
+                  <DatePicker id="task-due-date" value={dueDate} onChange={setDueDate} placeholder="Due date" />
+                </FormField>
               </div>
-              <Select
-                value={assignedTo}
-                onChange={setAssignedTo}
-                options={assignableUsers.map((u) => ({ label: u.name, value: u.id }))}
-              />
+              <FormField label="Assign to" htmlFor="task-assignee">
+                <Select
+                  id="task-assignee"
+                  value={assignedTo}
+                  onChange={setAssignedTo}
+                  options={assignableUsers.map((u) => ({ label: u.name, value: u.id }))}
+                />
+              </FormField>
             </div>
           </Dialog>
 
-          {error && (
-            <div className="mb-4 px-3 py-2.5 rounded-lg text-xs" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--red)" }}>
-              {error}
-            </div>
-          )}
+          {error && <ErrorBanner>{error}</ErrorBanner>}
 
           {/* Task list */}
-          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-            <div className="grid grid-cols-12 px-4 py-2.5 text-xs font-medium" style={{
-              background: "var(--bg-subtle)", borderBottom: "1px solid var(--border)", color: "var(--text-muted)",
-            }}>
-              <div className="col-span-4">Task</div>
-              <div className="col-span-2">Assigned To</div>
-              <div className="col-span-1">Related Deal</div>
-              <div className="col-span-1">Priority</div>
-              <div className="col-span-1">Due</div>
-              <div className="col-span-2">Status</div>
-              <div className="col-span-1"></div>
+          <TabsContent value={filter} className="mt-0">
+            <div className="overflow-hidden rounded-xl border bg-card">
+              <Table className="min-w-[900px]">
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className="px-4 text-xs">Task</TableHead>
+                    <TableHead className="px-4 text-xs">Assigned To</TableHead>
+                    <TableHead className="px-4 text-xs">Related Deal</TableHead>
+                    <TableHead className="px-4 text-xs">Priority</TableHead>
+                    <TableHead className="px-4 text-xs">Due</TableHead>
+                    <TableHead className="px-4 text-xs">Status</TableHead>
+                    <TableHead className="px-4 text-right text-xs">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading && <TableSkeletonRows columns={TABLE_COLUMNS} />}
+
+                  {!loading && tasks.length === 0 && (
+                    <TableMessageRow colSpan={TABLE_COLUMNS}>No tasks found</TableMessageRow>
+                  )}
+
+                  {!loading && tasks.map((t) => (
+                    <TableRow key={t.id} className="group/row">
+                      <TableCell className="max-w-[320px] px-4 py-3">
+                        <RevealOnHover primary={<span className="font-medium">{t.title}</span>}>
+                          {t.description ? <RevealLine>{t.description}</RevealLine> : null}
+                        </RevealOnHover>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                          <InitialsAvatar name={t.assignedTo} className="size-6" />
+                          <span className="truncate">{t.assignedTo}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="max-w-[160px] truncate px-4 py-3 text-xs text-muted-foreground">
+                        {t.relatedDeal ?? "—"}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <StatusBadge color={PRIORITY_COLOR[t.priority]}>{t.priority}</StatusBadge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
+                        {formatDate(t.dueDate)}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <Select
+                          value={t.status}
+                          onChange={(v) => handleStatusChange(t.id, v)}
+                          options={STATUS_OPTIONS.map((s) => ({ label: s, value: s }))}
+                          className="w-36"
+                        />
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right">
+                        <RowActionsMenu label={`Actions for ${t.title}`}>
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>
+                              <ListChecks aria-hidden />
+                              Change status
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-40">
+                              <DropdownMenuRadioGroup
+                                value={t.status}
+                                onValueChange={(v) => {
+                                  // Same rule as the select beside it: only a
+                                  // real change is sent.
+                                  if (v !== t.status) handleStatusChange(t.id, v);
+                                }}
+                              >
+                                {STATUS_OPTIONS.map((s) => (
+                                  <DropdownMenuRadioItem key={s} value={s}>{s}</DropdownMenuRadioItem>
+                                ))}
+                              </DropdownMenuRadioGroup>
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() => handleDeleteTask(t.id, t.title)}
+                            className="text-danger focus:text-danger"
+                          >
+                            <Trash2 aria-hidden />
+                            Delete task
+                          </DropdownMenuItem>
+                        </RowActionsMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              {/* FLAG: the list asks for at most 50 tasks and the API has no
+                  page parameter here, so the footer states the count only. */}
+              {!loading && total > 0 && (
+                <div className="border-t px-4 py-3 text-xs text-muted-foreground">
+                  Showing {tasks.length} of {total}
+                </div>
+              )}
             </div>
-
-            {loading && <LoadingState variant="inline" />}
-
-            {!loading && tasks.length === 0 && (
-              <div className="px-4 py-10 text-center text-xs" style={{ color: "var(--text-muted)" }}>No tasks found</div>
-            )}
-
-            {!loading && tasks.map((t, i) => (
-              <div
-                key={t.id}
-                className="group/row grid grid-cols-12 px-4 py-3 text-sm items-center"
-                style={{ borderBottom: i < tasks.length - 1 ? "1px solid var(--border)" : "none" }}
-              >
-                <div className="col-span-4 min-w-0">
-                  <RevealOnHover primary={t.title}>
-                    {t.description ? <RevealLine>{t.description}</RevealLine> : null}
-                  </RevealOnHover>
-                </div>
-                <div className="col-span-2 text-xs" style={{ color: "var(--text-muted)" }}>{t.assignedTo}</div>
-                <div className="col-span-1 text-xs truncate" style={{ color: "var(--text-muted)" }}>{t.relatedDeal ?? "—"}</div>
-                <div className="col-span-1">
-                  <span className="inline-flex items-center gap-1.5 text-xs">
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: PRIORITY_COLOR[t.priority] }} />
-                    {t.priority}
-                  </span>
-                </div>
-                <div className="col-span-1 text-xs" style={{ color: "var(--text-muted)" }}>{formatDate(t.dueDate)}</div>
-                <div className="col-span-2">
-                  <Select
-                    value={t.status}
-                    onChange={(v) => handleStatusChange(t.id, v)}
-                    options={STATUS_OPTIONS.map((s) => ({ label: s, value: s }))}
-                  />
-                </div>
-                <div className="col-span-1 flex justify-center">
-                  <button onClick={() => handleDeleteTask(t.id, t.title)} aria-label="Delete task" style={{ color: "var(--text-faint)" }}>
-                    <Trash2 size={13} strokeWidth={1.8} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+          </TabsContent>
+        </Tabs>
     </>
   );
 }

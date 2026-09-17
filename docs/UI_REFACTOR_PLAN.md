@@ -569,9 +569,11 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
   Set outcome, Reschedule), footer, both dialogs.
 - [x] **Contacts:** controls, table (favourite star stays display-only),
   row action, footer, both dialogs.
-- [ ] **Tasks:** filter tabs, table, status select, delete with confirm, count
-  footer, New Task dialog (including meeting fields).
-- [ ] Skeletons.
+- [x] **Tasks:** filter tabs, table, status select, delete with confirm, count
+  footer, New Task dialog. (Correction: the page never had meeting fields —
+  the API accepts them, but adding them would be a new feature, so none were
+  added.)
+- [x] Skeletons.
 - [ ] Verify, then report.
 
 ### Phase 9: Analytics
