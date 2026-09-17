@@ -452,7 +452,7 @@ first.
 - Remove `shadow` from `card.tsx` and any other primitive where it appears.
 
 **Checklist:**
-- [ ] **Select** — primitives `select`. Rebuild `common/Select`: same props;
+- [x] **Select** — primitives `select`. Rebuild `common/Select`: same props;
   `""` ↔ sentinel mapping; `align="right"` → `align="end"`; `className` sets
   the width; placeholder when nothing matches.
 - [ ] **DatePicker** — primitives `button`, `popover`, and `calendar`
