@@ -526,8 +526,8 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
 - [ ] Deal Insights metric strip (change line on Total Revenue only).
 - [x] `RevenueChart` → gradient area chart using `ChartContainer`.
 - [ ] Deals-per-month bars → the Chart component.
-- [ ] `PipelineChart` → thin progress bars.
-- [ ] `ActivityFeed` → card.
+- [x] `PipelineChart` → thin progress bars.
+- [x] `ActivityFeed` → card.
 - [ ] `InsightsPanel` metric strips for the 9-tile tabs; one card, with cells
   wrapping over two rows.
 - [ ] `DateRangeFilter`, and `TrendsChart` → area chart (previous-period line

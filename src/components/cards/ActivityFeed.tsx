@@ -1,4 +1,5 @@
 import { ActivityItem } from "@/types/dashboard";
+import SectionCard from "@/components/common/SectionCard";
 
 const TYPE_LABEL: Record<string, string> = {
   DEAL_CREATED:      "Deal created",
@@ -22,37 +23,27 @@ function timeAgo(dateStr: string): string {
 
 export default function ActivityFeed({ activities }: { activities: ActivityItem[] }) {
   return (
-    <div className="p-5 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-      <div className="mb-5">
-        <h3 className="text-sm font-medium" style={{ color: "var(--text)" }}>Activity</h3>
-        <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Latest actions</p>
-      </div>
-
-      <div className="space-y-4">
+    <SectionCard title="Activity" description="Latest actions" className="h-full">
+      <ul className="space-y-4">
         {activities.map((a) => (
-          <div key={a.id} className="flex gap-3">
-            {/* Dot */}
-            <div className="mt-1.5 flex-shrink-0">
-              <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--text-muted)" }} />
-            </div>
+          <li key={a.id} className="flex gap-3">
+            <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-muted-foreground" aria-hidden />
 
-            <div className="flex-1 min-w-0">
-              <p className="text-xs leading-relaxed" style={{ color: "var(--text)" }}>
-                {a.message}
-              </p>
-              <div className="flex items-center gap-1.5 mt-1">
-                <span className="text-xs" style={{ color: "var(--text-muted)" }}>{a.user.name}</span>
-                <span style={{ color: "var(--text-faint)" }}>·</span>
-                <span className="text-xs" style={{ color: "var(--text-muted)" }}>{timeAgo(a.createdAt)}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs leading-relaxed text-foreground">{a.message}</p>
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="truncate">{a.user.name}</span>
+                <span className="text-faint" aria-hidden>·</span>
+                <span className="shrink-0">{timeAgo(a.createdAt)}</span>
               </div>
             </div>
-          </div>
+          </li>
         ))}
+      </ul>
 
-        {activities.length === 0 && (
-          <p className="text-xs py-4" style={{ color: "var(--text-muted)" }}>No activity yet.</p>
-        )}
-      </div>
-    </div>
+      {activities.length === 0 && (
+        <p className="py-4 text-xs text-muted-foreground">No activity yet.</p>
+      )}
+    </SectionCard>
   );
 }

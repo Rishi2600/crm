@@ -2,48 +2,46 @@
 
 import { PipelineStage } from "@/types/dashboard";
 import { formatINRExact } from "@/lib/currency";
+import SectionCard from "@/components/common/SectionCard";
+import { Progress } from "@/components/ui/progress";
+import { DEAL_STAGE_COLOR, FALLBACK_STATUS_COLOR } from "@/components/common/statusColors";
 
 export default function PipelineChart({ data }: { data: PipelineStage[] }) {
   const total = data.reduce((s, d) => s + d.count, 0);
   const totalAmount = data.reduce((s, d) => s + d.amount, 0);
 
   return (
-    <div className="p-5 rounded-xl h-full" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-      <div className="mb-5">
-        <h3 className="text-sm font-medium" style={{ color: "var(--text)" }}>Pipeline</h3>
-        <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{total} open deals</p>
-      </div>
-
-      <div className="space-y-3">
+    <SectionCard title="Pipeline" description={`${total} open deals`} className="h-full">
+      <div className="space-y-4">
         {data.map((item) => {
           const pct = total === 0 ? 0 : Math.round((item.count / total) * 100);
           return (
-            <div key={item.stage}>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs" style={{ color: "var(--text-muted)" }}>{item.stage}</span>
-                <span className="text-xs font-medium tabular-nums" style={{ color: "var(--text)" }}>
-                  {item.count}
+            <div key={item.stage} className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+                  <span
+                    className="size-1.5 shrink-0 rounded-full"
+                    style={{ background: DEAL_STAGE_COLOR[item.stage] ?? FALLBACK_STATUS_COLOR }}
+                    aria-hidden
+                  />
+                  <span className="truncate">{item.stage}</span>
                 </span>
+                <span className="font-medium tabular-nums text-foreground">{item.count}</span>
               </div>
-              <div className="h-1 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{ width: `${pct}%`, background: "var(--text)" }}
-                />
-              </div>
+              <Progress value={pct} className="h-1" aria-label={`${item.stage}: ${pct}% of open deals`} />
             </div>
           );
         })}
       </div>
 
       {totalAmount > 0 && (
-        <div className="mt-5 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
-          <div className="text-xs" style={{ color: "var(--text-muted)" }}>Total pipeline value</div>
-          <div className="text-lg font-semibold mt-0.5" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
+        <div className="mt-5 border-t pt-4">
+          <div className="text-xs text-muted-foreground">Total pipeline value</div>
+          <div className="mt-0.5 text-lg font-semibold tracking-tight text-foreground">
             {formatINRExact(totalAmount)}
           </div>
         </div>
       )}
-    </div>
+    </SectionCard>
   );
 }
