@@ -79,6 +79,10 @@ module.exports = {
         faint: "var(--text-faint)",
         success: "var(--green)",
         live: "var(--live)",
+        // Red for TEXT (error messages, bad-change figures). `destructive` is
+        // the fill colour and stays #dc2626 in both themes, which is too dark
+        // to read as small text on the dark background; --red lightens there.
+        danger: "var(--red)",
       },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",

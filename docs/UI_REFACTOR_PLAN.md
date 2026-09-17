@@ -513,7 +513,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
   - lead detail: the back button
   - the triple shells in `leads/[id]` and `analytics` become single ones
 - [x] Delete `components/layout/Sidebar.tsx` once nothing imports it.
-- [ ] Verify: tsc, build. **Commits in the middle of this phase can show a
+- [x] Verify: tsc, build. **Commits in the middle of this phase can show a
   doubled or missing sidebar — check only at the end.** Owner checks:
   collapse/expand (including Cmd/Ctrl+B), mobile sheet, active item on
   `/leads/<id>`, Cmd/Ctrl+K, the user menu, theme toggle and sign out, in both
