@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, Check, ArrowRight } from "lucide-react";
 import ThemeToggle from "@/components/layout/ThemeToggle";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const FEATURES = [
   "Track every deal from lead to close",
@@ -43,56 +47,44 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2" style={{ background: "var(--bg)" }}>
+    <div className="grid min-h-screen bg-background lg:grid-cols-2">
       {/* ── Left — branded panel, colors deliberately INVERTED relative to
           the page so it reads as a strong brand block in both light and
           dark mode without needing separate hardcoded colors. ──────────── */}
-      <div
-        className="hidden lg:flex relative flex-col justify-between p-12 overflow-hidden"
-        style={{ background: "var(--text)", color: "var(--bg)" }}
-      >
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-foreground p-12 text-background lg:flex">
         {/* Decorative dot grid */}
         <div
-          className="absolute inset-0 opacity-[0.08]"
-          style={{
-            backgroundImage: "radial-gradient(currentColor 1px, transparent 1px)",
-            backgroundSize: "24px 24px",
-          }}
+          className="absolute inset-0 bg-[radial-gradient(currentColor_1px,transparent_1px)] opacity-[0.08] [background-size:24px_24px]"
+          aria-hidden
         />
         {/* Soft glow blob */}
         <div
-          className="absolute rounded-full opacity-[0.12]"
-          style={{
-            width: 500, height: 500, top: -150, right: -150,
-            background: "radial-gradient(circle, var(--bg) 0%, transparent 70%)",
-          }}
+          className="absolute -right-[150px] -top-[150px] size-[500px] rounded-full bg-[radial-gradient(circle,hsl(var(--background))_0%,transparent_70%)] opacity-[0.12]"
+          aria-hidden
         />
 
         <div className="relative z-10">
-          <Link href="/" className="text-xl font-semibold" style={{ letterSpacing: "-0.02em" }}>CRM</Link>
+          <Link href="/" className="text-xl font-semibold tracking-tight">CRM</Link>
         </div>
 
         <div className="relative z-10 max-w-md">
-          <h1 className="text-4xl font-semibold leading-tight mb-4" style={{ letterSpacing: "-0.03em" }}>
+          <h1 className="mb-4 text-4xl font-semibold leading-tight tracking-tighter">
             Run your entire sales pipeline in one place.
           </h1>
-          <p className="text-sm mb-8 opacity-70">
+          <p className="mb-8 text-sm opacity-70">
             Contacts, deals, tasks, and reporting — one clean workspace for the whole team.
           </p>
 
-          <div className="space-y-3">
+          <ul className="space-y-3">
             {FEATURES.map((f) => (
-              <div key={f} className="flex items-center gap-3">
-                <div
-                  className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: "var(--bg)", color: "var(--text)" }}
-                >
-                  <Check size={12} strokeWidth={3} />
-                </div>
+              <li key={f} className="flex items-center gap-3">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-background text-foreground">
+                  <Check className="size-3" strokeWidth={3} aria-hidden />
+                </span>
                 <span className="text-sm opacity-90">{f}</span>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
 
         <div className="relative z-10 text-xs opacity-50">
@@ -106,7 +98,7 @@ export default function LoginPage() {
           <ThemeToggle />
         </div>
 
-        <div className="flex-1 flex items-center justify-center px-6 pb-16">
+        <div className="flex flex-1 items-center justify-center px-4 pb-16 sm:px-6">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -114,99 +106,89 @@ export default function LoginPage() {
             className="w-full max-w-sm"
           >
             {/* Mobile-only brand mark */}
-            <Link href="/" className="lg:hidden block text-xl font-semibold mb-8" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
+            <Link href="/" className="mb-8 block text-xl font-semibold tracking-tight text-foreground lg:hidden">
               CRM
             </Link>
 
-            <h2 className="text-2xl font-semibold mb-1" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
-              Welcome back
-            </h2>
-            <p className="text-sm mb-8" style={{ color: "var(--text-muted)" }}>
-              Sign in to your workspace to continue
-            </p>
+            <Card>
+              <CardHeader className="space-y-1 p-6">
+                <CardTitle className="text-2xl font-semibold tracking-tight">Welcome back</CardTitle>
+                <CardDescription>Sign in to your workspace to continue</CardDescription>
+              </CardHeader>
 
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                className="mb-4 px-3 py-2.5 rounded-lg text-xs overflow-hidden"
-                style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--red)" }}
-              >
-                {error}
-              </motion.div>
-            )}
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-muted)" }}>
-                  Email
-                </label>
-                <div className="relative">
-                  <Mail size={15} strokeWidth={1.8}
-                    className="absolute left-3 top-1/2 -translate-y-1/2"
-                    style={{ color: "var(--text-muted)" }} />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                    placeholder="you@company.com"
-                    className="w-full pl-9 pr-3 py-2.5 rounded-lg text-sm transition-colors"
-                    style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--text-muted)" }}>
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock size={15} strokeWidth={1.8}
-                    className="absolute left-3 top-1/2 -translate-y-1/2"
-                    style={{ color: "var(--text-muted)" }} />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                    placeholder="••••••••"
-                    className="w-full pl-9 pr-9 py-2.5 rounded-lg text-sm"
-                    style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text)", outline: "none" }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((s) => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2"
-                    style={{ color: "var(--text-muted)" }}
-                    tabIndex={-1}
+              <CardContent className="space-y-4 p-6 pt-0">
+                {error && (
+                  <motion.div
+                    role="alert"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="overflow-hidden rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-xs text-danger"
                   >
-                    {showPassword ? <EyeOff size={15} strokeWidth={1.8} /> : <Eye size={15} strokeWidth={1.8} />}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                onClick={handleLogin}
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-opacity mt-1 group"
-                style={{ background: "var(--text)", color: "var(--bg)", opacity: loading ? 0.5 : 1 }}
-              >
-                {loading ? "Signing in..." : (
-                  <>
-                    Sign in
-                    <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
-                  </>
+                    {error}
+                  </motion.div>
                 )}
-              </button>
-            </div>
 
-            <div
-              className="mt-6 px-3 py-2.5 rounded-lg text-xs"
-              style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
-            >
-              Demo — <span style={{ color: "var(--text)" }}>admin@crm.com</span> · password123
-            </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="login-email" className="text-xs text-muted-foreground">
+                    Email
+                  </Label>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                    <Input
+                      id="login-email"
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                      placeholder="you@company.com"
+                      className="h-10 pl-9"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-1.5">
+                  <Label htmlFor="login-password" className="text-xs text-muted-foreground">
+                    Password
+                  </Label>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                    <Input
+                      id="login-password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                      placeholder="••••••••"
+                      className="h-10 px-9"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+                    </button>
+                  </div>
+                </div>
+
+                <Button onClick={handleLogin} disabled={loading} className="group mt-1 h-10 w-full">
+                  {loading ? "Signing in..." : (
+                    <>
+                      Sign in
+                      <ArrowRight className="transition-transform group-hover:translate-x-0.5" aria-hidden />
+                    </>
+                  )}
+                </Button>
+
+                <div className="rounded-lg border bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
+                  Demo — <span className="text-foreground">admin@crm.com</span> · password123
+                </div>
+              </CardContent>
+            </Card>
           </motion.div>
         </div>
       </div>

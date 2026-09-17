@@ -585,7 +585,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
 
 ### Phase 10: Login and landing
 
-- [ ] Login: shadcn `card`, `input`, `label`, `button`; the demo hint; framer
+- [x] Login: shadcn `card`, `input`, `label`, `button`; the demo hint; framer
   motion as it is today; no shell.
 - [ ] Landing: token classes and shadcn buttons; no shell. Its `$284.5K`,
   outdated copy and auth-only visibility are §17 items and stay as they are.
