@@ -1,18 +1,72 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardResponse } from "@/types/dashboard";
 import { InsightsTab } from "@/types/insights";
-import MetricCard from "@/components/cards/MetricCard";
 import RevenueChart from "@/components/charts/RevenueChart";
 import PipelineChart from "@/components/charts/PipelineChart";
+import DealsChart from "@/components/charts/DealsChart";
 import ActivityFeed from "@/components/cards/ActivityFeed";
 import { formatINR } from "@/lib/currency";
 import { PageHeader } from "@/components/layout/PageHeader";
-import LoadingState from "@/components/common/LoadingState";
 import InsightsTabs from "@/components/insights/InsightsTabs";
 import InsightsPanel from "@/components/insights/InsightsPanel";
+import MetricStrip, { type Metric } from "@/components/common/MetricStrip";
+import ErrorBanner from "@/components/common/ErrorBanner";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const DEAL_METRIC_LABELS = ["Total Revenue", "Active Deals", "Contacts", "Conversion Rate"];
+
+function dealMetrics(data: DashboardResponse): Metric[] {
+  return [
+    {
+      label: "Total Revenue",
+      value: formatINR(data.revenue.amount),
+      change: { percent: data.revenue.growth, caption: "vs last month" },
+    },
+    { label: "Active Deals", value: data.activeDeals },
+    { label: "Contacts", value: data.contacts.toLocaleString() },
+    { label: "Conversion Rate", value: `${data.conversionRate}%` },
+  ];
+}
+
+// The Deal Insights layout: a 4-cell strip, then two rows of one wide and one
+// narrow card. Loading and loaded states share it so nothing jumps.
+function DealInsightsLayout({ strip, revenue, pipeline, activity, deals }: {
+  strip: ReactNode;
+  revenue: ReactNode;
+  pipeline: ReactNode;
+  activity: ReactNode;
+  deals: ReactNode;
+}) {
+  return (
+    <div className="space-y-4">
+      {strip}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="min-w-0 lg:col-span-2">{revenue}</div>
+        {pipeline}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        {activity}
+        <div className="min-w-0 lg:col-span-2">{deals}</div>
+      </div>
+    </div>
+  );
+}
+
+function CardSkeleton({ bodyClassName }: { bodyClassName: string }) {
+  return (
+    <Card className="h-full space-y-5 p-5">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-3 w-36" />
+      </div>
+      <Skeleton className={bodyClassName} />
+    </Card>
+  );
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -92,95 +146,39 @@ export default function DashboardPage() {
         </PageHeader>
 
         {/* Content */}
-        <div className="space-y-6">
+        <div>
           <InsightsTabs value={tab} onChange={setTab}>
           {/* Lead / Follow-Up Insights — KPI cards + trend graph */}
           {tab !== "deal" && <InsightsPanel tab={tab} />}
 
-          {/* Deal Insights — the original dashboard, unchanged */}
+          {/* Deal Insights — the original dashboard's content */}
           {tab === "deal" && (
             <>
               {loading && (
-                <div className="flex items-center justify-center py-24">
-                  <LoadingState />
-                </div>
+                <DealInsightsLayout
+                  strip={
+                    <MetricStrip
+                      loading
+                      metrics={DEAL_METRIC_LABELS.map((label) => ({ label, value: null }))}
+                    />
+                  }
+                  revenue={<CardSkeleton bodyClassName="h-[220px] w-full" />}
+                  pipeline={<CardSkeleton bodyClassName="h-40 w-full" />}
+                  activity={<CardSkeleton bodyClassName="h-48 w-full" />}
+                  deals={<CardSkeleton bodyClassName="h-[220px] w-full" />}
+                />
               )}
 
-              {!loading && error && (
-                <div className="py-24 text-center text-sm" style={{ color: "var(--red)" }}>
-                  {error}
-                </div>
-              )}
+              {!loading && error && <ErrorBanner>{error}</ErrorBanner>}
 
               {!loading && !error && data && (
-                <div className="space-y-6">
-                  {/* Metric cards */}
-                  <div className="grid grid-cols-4 gap-4">
-                    <MetricCard
-                      title="Total Revenue"
-                      value={formatINR(data.revenue.amount)}
-                      trend={data.revenue.growth}
-                      subtitle="vs last month"
-                    />
-                    <MetricCard
-                      title="Active Deals"
-                      value={data.activeDeals}
-                      subtitle="in pipeline"
-                    />
-                    <MetricCard
-                      title="Contacts"
-                      value={data.contacts.toLocaleString()}
-                      subtitle="total"
-                    />
-                    <MetricCard
-                      title="Conversion Rate"
-                      value={`${data.conversionRate}%`}
-                      subtitle="deals won"
-                    />
-                  </div>
-
-                  {/* Charts row */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="col-span-2">
-                      <RevenueChart data={data.revenueGraph} />
-                    </div>
-                    <PipelineChart data={data.pipeline} />
-                  </div>
-
-                  {/* Bottom row */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <ActivityFeed activities={data.activities} />
-
-                    {/* Deals by month */}
-                    <div className="col-span-2 p-5 rounded-xl"
-                      style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                      <div className="mb-5">
-                        <h3 className="text-sm font-medium" style={{ color: "var(--text)" }}>Deals</h3>
-                        <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Created · last 6 months</p>
-                      </div>
-
-                      <div className="flex items-end gap-2 h-28">
-                        {data.dealsGraph.map((point) => {
-                          const max = Math.max(...data.dealsGraph.map((p) => p.value), 1);
-                          const pct = Math.max((point.value / max) * 100, 4);
-                          return (
-                            <div key={point.month} className="flex-1 flex flex-col items-center gap-2">
-                              <span className="text-xs tabular-nums" style={{ color: "var(--text-muted)" }}>
-                                {point.value}
-                              </span>
-                              <div className="w-full rounded-sm" style={{
-                                height: `${pct}%`,
-                                background: "var(--text)",
-                                opacity: 0.15 + (pct / 100) * 0.85,
-                              }} />
-                              <span className="text-xs" style={{ color: "var(--text-muted)" }}>{point.month}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <DealInsightsLayout
+                  strip={<MetricStrip metrics={dealMetrics(data)} />}
+                  revenue={<RevenueChart data={data.revenueGraph} />}
+                  pipeline={<PipelineChart data={data.pipeline} />}
+                  activity={<ActivityFeed activities={data.activities} />}
+                  deals={<DealsChart data={data.dealsGraph} />}
+                />
               )}
             </>
           )}

@@ -523,9 +523,9 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
 
 - [x] `InsightsTabs` → shadcn `tabs`, keeping the same values and lazy Deal
   fetch.
-- [ ] Deal Insights metric strip (change line on Total Revenue only).
+- [x] Deal Insights metric strip (change line on Total Revenue only).
 - [x] `RevenueChart` → gradient area chart using `ChartContainer`.
-- [ ] Deals-per-month bars → the Chart component.
+- [x] Deals-per-month bars → the Chart component.
 - [x] `PipelineChart` → thin progress bars.
 - [x] `ActivityFeed` → card.
 - [x] `InsightsPanel` metric strips for the 9-tile tabs; one card, with cells
@@ -534,7 +534,7 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
   only if Q3 is approved).
 - [ ] `MetricCard` and `InsightCard` → the metric-strip cell component, or
   deleted if unused.
-- [ ] Skeletons in the final shape for each block.
+- [x] Skeletons in the final shape for each block.
 - [ ] Verify, then report.
 
 ### Phase 6: Deals
