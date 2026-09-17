@@ -2,33 +2,31 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts";
+import { CalendarRange, Clock, Target, Trophy, UserCheck } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import Select from "@/components/common/Select";
 import DatePicker from "@/components/common/DatePicker";
-import LoadingState from "@/components/common/LoadingState";
-import { AnalyticsDashboardResponse } from "@/types/analytics";
+import ErrorBanner from "@/components/common/ErrorBanner";
+import InitialsAvatar from "@/components/common/InitialsAvatar";
+import MetricStrip from "@/components/common/MetricStrip";
+import SectionCard from "@/components/common/SectionCard";
+import SegmentedToggle from "@/components/common/SegmentedToggle";
+import AreaTrendChart from "@/components/charts/AreaTrendChart";
+import GroupedBarChart from "@/components/charts/GroupedBarChart";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AnalyticsDashboardResponse, FunnelStage, TopPerformer } from "@/types/analytics";
 import { formatINR, formatINRExact } from "@/lib/currency";
 
-// One tooltip for both charts below, but only one of them plots money —
-// `money` switches the value between rupees and a plain count so the deals/
-// contacts bars don't render "₹12" for twelve deals.
-function Tip({ active, payload, label, money = false }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="px-3 py-2 rounded-lg text-xs"
-      style={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text)" }}>
-      <div style={{ color: "var(--text-muted)" }} className="mb-1">{label}</div>
-      {payload.map((p: any) => (
-        <div key={p.dataKey}>
-          {p.name}: <span className="font-semibold">
-            {money ? formatINRExact(p.value) : p.value.toLocaleString("en-IN")}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
+type Sort = "revenue" | "deals";
+
+const METRIC_LABELS = ["Avg Deal Size", "Win Rate", "Sales Cycle", "Active Leads"];
+
+const SORT_OPTIONS: { label: string; value: Sort }[] = [
+  { label: "By Revenue", value: "revenue" },
+  { label: "By Deals Closed", value: "deals" },
+];
 
 export default function AnalyticsPage() {
   const router = useRouter();
@@ -37,7 +35,7 @@ export default function AnalyticsPage() {
   const [error, setError] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [sort, setSort] = useState<"revenue" | "deals">("revenue");
+  const [sort, setSort] = useState<Sort>("revenue");
 
   const fetchAnalytics = useCallback(async () => {
     const token = localStorage.getItem("crm-token");
@@ -66,13 +64,31 @@ export default function AnalyticsPage() {
 
   useEffect(() => { fetchAnalytics(); }, [sort]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const header = <PageHeader title={<span className="font-medium text-foreground">Analytics</span>} />;
+
   // The shell (sidebar and top bar) is the (app) layout's now, so the
   // loading and error states render only their own content.
   if (loading && !data) {
     return (
       <>
-        <PageHeader title={<span className="font-medium text-foreground">Analytics</span>} />
-        <LoadingState />
+        {header}
+        <div className="space-y-4" aria-busy="true" aria-label="Loading analytics">
+          <Skeleton className="h-9 w-80" />
+          <MetricStrip loading metrics={METRIC_LABELS.map((label) => ({ label, value: null }))} />
+          {[0, 1].map((row) => (
+            <div key={row} className="grid gap-4 lg:grid-cols-2">
+              {[0, 1].map((col) => (
+                <Card key={col} className="space-y-5 p-5">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-44" />
+                  </div>
+                  <Skeleton className="h-[220px] w-full" />
+                </Card>
+              ))}
+            </div>
+          ))}
+        </div>
       </>
     );
   }
@@ -80,153 +96,203 @@ export default function AnalyticsPage() {
   if (error && !data) {
     return (
       <>
-        <PageHeader title={<span className="font-medium text-foreground">Analytics</span>} />
-        <div className="flex items-center justify-center py-24">
-          <span className="text-sm text-destructive">{error}</span>
-        </div>
+        {header}
+        <ErrorBanner>{error}</ErrorBanner>
       </>
     );
   }
 
   if (!data) return null;
-  const maxFunnel = Math.max(...data.salesFunnel.map((f) => f.count), 1);
 
   return (
     <>
-        <PageHeader title={<span className="font-medium text-foreground">Analytics</span>} />
+        {header}
 
-        <div className="space-y-6">
+        <div className="space-y-4" aria-busy={loading}>
           {/* Date range filter */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <DatePicker value={from} onChange={setFrom} placeholder="From" className="w-40" />
-            <span className="text-xs" style={{ color: "var(--text-muted)" }}>to</span>
+            <span className="text-xs text-muted-foreground">to</span>
             <DatePicker value={to} onChange={setTo} placeholder="To" className="w-40" />
-            <button onClick={fetchAnalytics}
-              className="px-3 py-2 rounded-lg text-xs font-medium"
-              style={{ background: "var(--text)", color: "var(--bg)" }}>
+            <Button onClick={fetchAnalytics}>
+              <CalendarRange aria-hidden />
               Apply
-            </button>
+            </Button>
             {(from || to) && (
-              <button onClick={() => { setFrom(""); setTo(""); fetchAnalytics(); }}
-                className="px-3 py-2 rounded-lg text-xs" style={{ color: "var(--text-muted)" }}>
+              <Button variant="ghost" onClick={() => { setFrom(""); setTo(""); fetchAnalytics(); }} className="text-muted-foreground">
                 Clear
-              </button>
+              </Button>
             )}
           </div>
 
-          {/* KPI cards */}
-          <div className="grid grid-cols-4 gap-4">
-            <div className="p-5 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <div className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Avg Deal Size</div>
-              <div className="text-2xl font-semibold mt-2" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
-                {formatINR(data.kpis.averageDealSize)}
-              </div>
-            </div>
-            <div className="p-5 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <div className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Win Rate</div>
-              <div className="text-2xl font-semibold mt-2" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
-                {data.kpis.winRate}%
-              </div>
-            </div>
-            <div className="p-5 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <div className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Sales Cycle</div>
-              <div className="text-2xl font-semibold mt-2" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
-                {data.kpis.salesCycle} <span className="text-sm font-normal" style={{ color: "var(--text-muted)" }}>days</span>
-              </div>
-            </div>
-            <div className="p-5 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <div className="text-xs uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>Active Leads</div>
-              <div className="text-2xl font-semibold mt-2" style={{ color: "var(--text)", letterSpacing: "-0.02em" }}>
-                {data.kpis.activeLeads}
-              </div>
-            </div>
-          </div>
+          {/* KPIs */}
+          <MetricStrip
+            metrics={[
+              { label: "Avg Deal Size", value: formatINR(data.kpis.averageDealSize), icon: Target },
+              { label: "Win Rate", value: `${data.kpis.winRate}%`, icon: Trophy },
+              {
+                label: "Sales Cycle",
+                value: (
+                  <>
+                    {data.kpis.salesCycle} <span className="text-sm font-normal text-muted-foreground">days</span>
+                  </>
+                ),
+                icon: Clock,
+              },
+              { label: "Active Leads", value: data.kpis.activeLeads, icon: UserCheck },
+            ]}
+          />
 
           {/* Revenue trend + Growth */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-5 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <h3 className="text-sm font-medium mb-1" style={{ color: "var(--text)" }}>Revenue Trend</h3>
-              <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>Won deals by close month</p>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={data.revenueTrend}>
-                  <CartesianGrid strokeDasharray="2 4" stroke="var(--border)" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={(v) => formatINR(v)} tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} width={44} />
-                  <Tooltip content={<Tip money />} />
-                  <Line type="monotone" dataKey="amount" name="Revenue" stroke="var(--text)" strokeWidth={1.5} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <SectionCard title="Revenue Trend" description="Won deals by close month">
+              <AreaTrendChart
+                data={data.revenueTrend}
+                xKey="month"
+                yKey="amount"
+                seriesLabel="Revenue"
+                height={220}
+                valueFormatter={formatINRExact}
+                yTickFormatter={formatINR}
+              />
+            </SectionCard>
 
-            <div className="p-5 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <h3 className="text-sm font-medium mb-1" style={{ color: "var(--text)" }}>Deals & Contacts Growth</h3>
-              <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>Created per month</p>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={data.growth}>
-                  <CartesianGrid strokeDasharray="2 4" stroke="var(--border)" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} width={30} />
-                  <Tooltip content={<Tip />} />
-                  <Legend wrapperStyle={{ fontSize: 11, color: "var(--text-muted)" }} />
-                  <Bar dataKey="deals" name="Deals" fill="var(--text)" opacity={0.9} radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="contacts" name="Contacts" fill="var(--text-muted)" opacity={0.6} radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <SectionCard title="Deals & Contacts Growth" description="Created per month">
+              <GroupedBarChart
+                data={data.growth}
+                xKey="month"
+                height={220}
+                series={[
+                  { key: "deals", label: "Deals" },
+                  { key: "contacts", label: "Contacts" },
+                ]}
+                valueFormatter={(v) => v.toLocaleString("en-IN")}
+              />
+            </SectionCard>
           </div>
 
           {/* Funnel + Top Performers */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-5 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <h3 className="text-sm font-medium mb-4" style={{ color: "var(--text)" }}>Sales Funnel</h3>
-              <div className="space-y-3">
-                {data.salesFunnel.map((f) => (
-                  <div key={f.stage}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>{f.stage}</span>
-                      <span className="text-xs font-medium tabular-nums" style={{ color: "var(--text)" }}>{f.count}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                      <div className="h-full rounded-full" style={{ width: `${(f.count / maxFunnel) * 100}%`, background: "var(--text)" }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <SalesFunnel stages={data.salesFunnel} />
 
-            <div className="p-5 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium" style={{ color: "var(--text)" }}>Top Performers</h3>
-                <Select
-                  value={sort}
-                  onChange={(v) => setSort(v as "revenue" | "deals")}
-                  className="w-40"
-                  options={[
-                    { label: "By Revenue", value: "revenue" },
-                    { label: "By Deals Closed", value: "deals" },
-                  ]}
-                />
-              </div>
-              <div className="space-y-2">
-                {data.topPerformers.length === 0 && (
-                  <div className="text-xs py-4" style={{ color: "var(--text-muted)" }}>No closed deals yet</div>
-                )}
-                {data.topPerformers.map((p, i) => (
-                  <div key={p.name} className="flex items-center justify-between py-2" style={{ borderBottom: i < data.topPerformers.length - 1 ? "1px solid var(--border)" : "none" }}>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs w-4" style={{ color: "var(--text-muted)" }}>{i + 1}</span>
-                      <span className="text-sm" style={{ color: "var(--text)" }}>{p.name}</span>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs">
-                      <span style={{ color: "var(--text-muted)" }}>{p.closedDeals} deals</span>
-                      <span className="font-semibold tabular-nums" style={{ color: "var(--text)" }}>{formatINR(p.revenue)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <SectionCard
+              title="Top Performers"
+              description={sort === "revenue" ? "Ranked by revenue won" : "Ranked by deals closed"}
+              action={<SegmentedToggle label="Rank by" options={SORT_OPTIONS} value={sort} onChange={setSort} />}
+            >
+              <Leaderboard performers={data.topPerformers} sort={sort} />
+            </SectionCard>
           </div>
         </div>
     </>
+  );
+}
+
+// ─── Sales funnel ─────────────────────────────────────────────────────────────
+
+/**
+ * FLAG: the API gives the number of deals sitting in each stage now, plus a
+ * "Leads" figure that counts contacts. Deals only move forward, so a deal in
+ * Negotiation has already been through Qualification and Proposal; adding
+ * each stage's count to every later stage's gives how many deals reached
+ * each stage. That tapers the way a funnel should. A deal created straight
+ * into a later stage is counted at the earlier ones too. "Leads" is not a
+ * deal stage, so it is shown beside the funnel rather than as its top.
+ */
+function reachedCounts(stages: FunnelStage[]): FunnelStage[] {
+  return stages.map((s, i) => ({
+    stage: s.stage,
+    count: stages.slice(i).reduce((sum, later) => sum + later.count, 0),
+  }));
+}
+
+function SalesFunnel({ stages }: { stages: FunnelStage[] }) {
+  const leads = stages.find((s) => s.stage === "Leads");
+  const funnel = reachedCounts(stages.filter((s) => s.stage !== "Leads"));
+  const top = funnel[0]?.count ?? 0;
+
+  return (
+    <SectionCard
+      title="Sales Funnel"
+      description="Deals that have reached each stage"
+      action={
+        leads && (
+          <div className="text-right">
+            <div className="text-xs text-muted-foreground">Leads (contacts)</div>
+            <div className="text-lg font-semibold tabular-nums leading-tight">{leads.count.toLocaleString()}</div>
+          </div>
+        )
+      }
+    >
+      <ol className="space-y-2">
+        {funnel.map((f, i) => {
+          const width = top === 0 ? 0 : (f.count / top) * 100;
+          const ofPrevious = i === 0 || funnel[i - 1].count === 0
+            ? null
+            : Math.round((f.count / funnel[i - 1].count) * 100);
+          return (
+            <li key={f.stage} className="flex items-center gap-3">
+              <span className="w-24 shrink-0 truncate text-xs text-muted-foreground">{f.stage}</span>
+              <div className="flex h-8 min-w-0 flex-1 justify-center">
+                {/* Bar width is the one dynamic value, so it stays inline. */}
+                <div
+                  className="flex h-full min-w-[2.5rem] items-center justify-center rounded-md bg-primary text-xs font-medium tabular-nums text-primary-foreground transition-[width]"
+                  style={{ width: `${width}%`, opacity: 1 - i * 0.18 }}
+                >
+                  {f.count}
+                </div>
+              </div>
+              <span className="w-14 shrink-0 text-right">
+                {ofPrevious !== null && (
+                  <span
+                    className="rounded-full border px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground"
+                    title="Share of the previous stage"
+                  >
+                    {ofPrevious}%
+                  </span>
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      <p className="mt-4 text-xs text-faint">
+        Each deal counts at every stage up to where it is now. Percentages compare a stage with the one before it.
+      </p>
+    </SectionCard>
+  );
+}
+
+// ─── Leaderboard ──────────────────────────────────────────────────────────────
+
+function Leaderboard({ performers, sort }: { performers: TopPerformer[]; sort: Sort }) {
+  if (performers.length === 0) {
+    return <div className="py-4 text-xs text-muted-foreground">No closed deals yet</div>;
+  }
+
+  // Bars are relative to the leader under the current ranking; there are no
+  // targets or quotas to measure against.
+  const valueOf = (p: TopPerformer) => (sort === "revenue" ? p.revenue : p.closedDeals);
+  const best = Math.max(...performers.map(valueOf), 1);
+
+  return (
+    <ol className="divide-y">
+      {performers.map((p, i) => (
+        <li key={p.name} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+          <span className="w-4 text-xs tabular-nums text-muted-foreground">{i + 1}</span>
+          <InitialsAvatar name={p.name} />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <span className="truncate text-sm text-foreground">{p.name}</span>
+              <span className="flex shrink-0 items-center gap-3 text-xs">
+                <span className="text-muted-foreground">{p.closedDeals} deals</span>
+                <span className="font-semibold tabular-nums text-foreground">{formatINR(p.revenue)}</span>
+              </span>
+            </div>
+            <Progress value={(valueOf(p) / best) * 100} className="h-1" aria-label={`${p.name}: ${Math.round((valueOf(p) / best) * 100)}% of the leader`} />
+          </div>
+        </li>
+      ))}
+    </ol>
   );
 }

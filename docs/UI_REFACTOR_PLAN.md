@@ -578,9 +578,9 @@ Primitives: `sidebar` (which brings `use-mobile`, `sheet`, `separator`,
 
 ### Phase 9: Analytics
 
-- [ ] Date range controls, metric strip, revenue area chart, grouped bars
+- [x] Date range controls, metric strip, revenue area chart, grouped bars
   (deals vs contacts), funnel per Q1, leaderboard with a sort toggle.
-- [ ] Skeletons.
+- [x] Skeletons.
 - [ ] Verify, then report.
 
 ### Phase 10: Login and landing
